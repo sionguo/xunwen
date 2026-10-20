@@ -16,7 +16,7 @@ import java.util.Map;
 
 /** 递归目录监视（FR-11）。非线程化：调用方周期性 pollEvents() + drainStable()。 */
 public final class RepoWatcher implements AutoCloseable {
-  private record Snapshot(long size, long mtimeMs, long seenAtMs) {}
+  private record Snapshot(long size, long mtimeMs) {}
 
   private final Path root;
   private final Duration stableWindow;
@@ -72,10 +72,7 @@ public final class RepoWatcher implements AutoCloseable {
           try {
             pending.put(
                 child,
-                new Snapshot(
-                    Files.size(child),
-                    Files.getLastModifiedTime(child).toMillis(),
-                    System.currentTimeMillis()));
+                new Snapshot(Files.size(child), Files.getLastModifiedTime(child).toMillis()));
           } catch (IOException e) {
             // 文件可能已消失
           }
@@ -99,9 +96,10 @@ public final class RepoWatcher implements AutoCloseable {
         if (unchanged && windowPassed) {
           stable.add(p);
           it.remove();
-        } else {
+        } else if (!unchanged) {
           it.remove(); // 变化过，等下一次事件重新进入 pending
         }
+        // unchanged 但窗口未过：留在 pending，下次 drain 再采样（连续 2 次采样不变才算稳定）
       } catch (IOException e) {
         it.remove(); // 文件已消失
       }
