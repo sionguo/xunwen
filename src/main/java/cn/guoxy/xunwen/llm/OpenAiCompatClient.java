@@ -23,8 +23,7 @@ public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
   private final String chatModel;
   private final String embedModel;
 
-  public OpenAiCompatClient(
-      String baseUrl, String apiKey, String chatModel, String embedModel, int vectorDim) {
+  public OpenAiCompatClient(String baseUrl, String apiKey, String chatModel, String embedModel) {
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     this.apiKey = apiKey == null ? "" : apiKey;
     this.chatModel = chatModel;
@@ -43,7 +42,7 @@ public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
         msgs.addObject().put("role", m.role()).put("content", m.content());
       }
       JsonNode resp = post(baseUrl + "/chat/completions", body);
-      return resp.path("choices").path(0).path("message").path("content").asText();
+      return resp.path("choices").path(0).path("message").path("content").asString();
     } catch (IOException | InterruptedException e) {
       throw new IllegalStateException("LLM chat failed: " + e.getMessage(), e);
     }
@@ -51,7 +50,7 @@ public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
 
   @Override
   public float[] embed(String text) {
-    return embedAll(List.of(text)).get(0);
+    return embedAll(List.of(text)).getFirst();
   }
 
   @Override

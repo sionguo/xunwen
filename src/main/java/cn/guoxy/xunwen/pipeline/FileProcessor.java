@@ -44,7 +44,7 @@ public final class FileProcessor {
 
               @Override
               public List<float[]> embedAll(List<String> texts) {
-                return texts.stream().map(t -> new float[cfg.vectorDim()]).toList();
+                return texts.stream().map(_ -> new float[cfg.vectorDim()]).toList();
               }
             };
     this.extractor = extractor;

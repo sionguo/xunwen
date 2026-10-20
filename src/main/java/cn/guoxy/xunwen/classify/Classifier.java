@@ -41,12 +41,10 @@ public final class Classifier {
                 llm.chat(List.of(LlmClient.Msg.system(SYSTEM_RULES), LlmClient.Msg.user(prompt))));
         return toOutcome(node, hasTextLayer, tree);
       } catch (Exception parseFailure) {
-        if (attempt == 1) {
-          return new Outcome(Action.UNKNOWN, "", 0.0, "", "");
-        }
+        // 两次均失败则走循环外兜底
       }
     }
-    return new Outcome(Action.UNKNOWN, "", 0.0, "", ""); // 不可达
+    return new Outcome(Action.UNKNOWN, "", 0.0, "", "");
   }
 
   private Outcome toOutcome(JsonNode node, boolean hasTextLayer, CategoryTree tree) {
@@ -61,7 +59,7 @@ public final class Classifier {
     if (!hasTextLayer) {
       confidence = Math.min(confidence, cfg.pendingThreshold());
     }
-    String category = node.path("category").asText("").strip();
+    String category = node.path("category").asString("").strip();
     boolean inTree = !category.isEmpty() && tree.find(category).isPresent();
     Action action =
         inTree && confidence >= cfg.autoThreshold()
@@ -71,12 +69,12 @@ public final class Classifier {
         action,
         inTree ? category : "",
         confidence,
-        node.path("proposed").asText("").strip(),
-        node.path("reason").asText("").strip());
+        node.path("proposed").asString("").strip(),
+        node.path("reason").asString("").strip());
   }
 
   private static double clamp(double v) {
-    return Math.max(0.0, Math.min(1.0, v));
+    return Math.clamp(v, 0.0, 1.0);
   }
 
   private static String buildPrompt(

@@ -41,7 +41,7 @@ class CategoryProposerTest {
     var proposer = new CategoryProposer(vec(table));
     var out = proposer.aggregate(List.of(unknown("发票凭证"), unknown("发票凭证")), tree);
     assertEquals(1, out.size());
-    assertEquals(2, out.get(0).fileCount());
+    assertEquals(2, out.getFirst().fileCount());
   }
 
   @Test
@@ -64,7 +64,7 @@ class CategoryProposerTest {
     var out =
         new CategoryProposer(vec(table)).aggregate(List.of(unknown("发票凭证"), unknown("票据发票")), tree);
     assertEquals(1, out.size());
-    assertEquals("发票凭证", out.get(0).name());
-    assertEquals(2, out.get(0).fileCount());
+    assertEquals("发票凭证", out.getFirst().name());
+    assertEquals(2, out.getFirst().fileCount());
   }
 }

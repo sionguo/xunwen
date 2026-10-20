@@ -16,7 +16,7 @@ class OperationLogTest {
     log.append(new OperationLog.Op("b2", 2L, "MOVE", "c", "d"));
     assertEquals(2, log.all().size());
     assertEquals(1, log.batch("b1").size());
-    assertEquals("a", log.batch("b1").get(0).src());
+    assertEquals("a", log.batch("b1").getFirst().src());
   }
 
   @Test

@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 public final class RepoRegistry {
@@ -20,8 +21,7 @@ public final class RepoRegistry {
     if (!Files.exists(file)) {
       return List.of();
     }
-    List<String> raw =
-        JSON.readValue(file.toFile(), new tools.jackson.core.type.TypeReference<List<String>>() {});
+    List<String> raw = JSON.readValue(file.toFile(), new TypeReference<>() {});
     return raw.stream().map(Path::of).toList();
   }
 

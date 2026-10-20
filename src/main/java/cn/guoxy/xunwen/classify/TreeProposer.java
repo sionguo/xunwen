@@ -41,17 +41,16 @@ public final class TreeProposer {
         {"categories":[{"name":"...","description":"...","children":[{"name":"...","description":"..."}]}]}
         """
             .formatted(sb);
+    Exception last = null;
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
         JsonNode node = JSON.readTree(llm.chat(List.of(LlmClient.Msg.user(prompt))));
         return parse(node);
       } catch (Exception e) {
-        if (attempt == 1) {
-          throw new IllegalStateException("类别树生成失败", e);
-        }
+        last = e;
       }
     }
-    throw new IllegalStateException("unreachable");
+    throw new IllegalStateException("类别树生成失败", last);
   }
 
   private static CategoryTree parse(JsonNode node) {
@@ -60,9 +59,10 @@ public final class TreeProposer {
       List<Category> children = new ArrayList<>();
       for (JsonNode ch : c.path("children")) {
         children.add(
-            new Category(ch.path("name").asText(), ch.path("description").asText(), List.of()));
+            new Category(ch.path("name").asString(), ch.path("description").asString(), List.of()));
       }
-      roots.add(new Category(c.path("name").asText(), c.path("description").asText(), children));
+      roots.add(
+          new Category(c.path("name").asString(), c.path("description").asString(), children));
     }
     return new CategoryTree(roots);
   }

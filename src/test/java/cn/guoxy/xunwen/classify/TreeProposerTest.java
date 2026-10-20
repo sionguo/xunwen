@@ -18,7 +18,7 @@ class TreeProposerTest {
             {"name":"报告","description":"各类报告"}]},
           {"name":"其他","description":"兜底","children":[]}]}
         """;
-    CategoryTree tree = new TreeProposer(msgs -> json).propose(List.of());
+    CategoryTree tree = new TreeProposer(_ -> json).propose(List.of());
     assertEquals(List.of("工作文档", "工作文档/报告", "其他"), tree.flattenPaths());
   }
 
@@ -26,7 +26,7 @@ class TreeProposerTest {
   void retriesOnceThenSucceeds() {
     int[] calls = {0};
     LlmClient bad =
-        msgs -> {
+        _ -> {
           calls[0]++;
           return calls[0] == 1 ? "oops" : "{\"categories\":[]}"; // 第二次成功即不抛
         };
@@ -35,7 +35,7 @@ class TreeProposerTest {
 
   @Test
   void bothAttemptsFailThrows() {
-    LlmClient alwaysBad = msgs -> "nope";
+    LlmClient alwaysBad = _ -> "nope";
     assertThrows(IllegalStateException.class, () -> new TreeProposer(alwaysBad).propose(List.of()));
   }
 }

@@ -21,7 +21,7 @@ public final class ReshuffleTask {
     }
 
     static Progress noop() {
-      return (done, total, file) -> {};
+      return (_, _, _) -> {};
     }
   }
 
@@ -48,7 +48,7 @@ public final class ReshuffleTask {
 
     List<Path> files = listFiles();
     int done = 0;
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot), cfg.vectorDim())) {
+    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (Path file : files) {
         if (progress.cancelled()) {
           break; // 已完成的保留，批次仍可回滚（FR-3/FR-4）

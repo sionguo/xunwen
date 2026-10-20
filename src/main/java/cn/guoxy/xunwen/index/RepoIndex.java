@@ -21,6 +21,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
+import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
@@ -43,10 +44,8 @@ public final class RepoIndex implements AutoCloseable {
   private final FSDirectory dir;
   private final IndexWriter writer;
   private final SmartChineseAnalyzer analyzer;
-  private final int vectorDim;
 
-  public RepoIndex(Path indexDir, int vectorDim) throws IOException {
-    this.vectorDim = vectorDim;
+  public RepoIndex(Path indexDir) throws IOException {
     this.dir = FSDirectory.open(indexDir);
     this.analyzer = new SmartChineseAnalyzer();
     this.writer = new IndexWriter(dir, new IndexWriterConfig(analyzer));
@@ -84,14 +83,13 @@ public final class RepoIndex implements AutoCloseable {
     Query q = new TermQuery(new Term(F_PATH, path));
     TopDocs docs = search(q, 1);
     List<StoredDoc> out = storedOf(docs.scoreDocs);
-    return out.isEmpty() ? Optional.empty() : Optional.of(out.get(0));
+    return out.isEmpty() ? Optional.empty() : Optional.of(out.getFirst());
   }
 
   public List<FileInfo> allFiles() throws IOException {
     try (IndexReader reader = reader()) {
       // MatchAllDocsQuery 只命中 live docs，deleted doc 自然排除
-      TopDocs all =
-          search(new org.apache.lucene.search.MatchAllDocsQuery(), Math.max(1, reader.numDocs()));
+      TopDocs all = search(MatchAllDocsQuery.INSTANCE, Math.max(1, reader.numDocs()));
       List<FileInfo> out = new ArrayList<>();
       for (org.apache.lucene.search.ScoreDoc hit : all.scoreDocs) {
         Document d = reader.storedFields().document(hit.doc);

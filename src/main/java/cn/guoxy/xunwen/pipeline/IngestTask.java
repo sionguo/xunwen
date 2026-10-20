@@ -19,12 +19,10 @@ import java.util.Map;
 /** 增量入库与积压同步（FR-12：以文件系统为准修正索引）。 */
 public final class IngestTask {
   private final Path repoRoot;
-  private final GlobalConfig cfg;
   private final FileProcessor processor;
 
   public IngestTask(Path repoRoot, GlobalConfig cfg, LlmClient llm, ContentExtractor extractor) {
     this.repoRoot = repoRoot.toAbsolutePath().normalize();
-    this.cfg = cfg;
     this.processor = new FileProcessor(this.repoRoot, cfg, llm, extractor);
   }
 
@@ -32,7 +30,7 @@ public final class IngestTask {
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
     String batchId = "ingest-" + System.currentTimeMillis();
     List<Path> done = new ArrayList<>();
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot), cfg.vectorDim())) {
+    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (Path f : newFiles) {
         processor.process(f, tree, batchId, index);
         done.add(f);
@@ -52,7 +50,7 @@ public final class IngestTask {
           FileProcessor.posix(repoRoot.relativize(p)), new long[] {ft.toMillis(), Files.size(p)});
     }
     int processed = 0;
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot), cfg.vectorDim())) {
+    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       // 1. 索引有、文件系统无 → 清理；指纹不同 → 删旧记录待重处理
       for (FileInfo info : index.allFiles()) {
         long[] fp = fs.get(info.path());
@@ -77,10 +75,11 @@ public final class IngestTask {
 
   private List<Path> walkFiles() throws IOException {
     Path xunwen = RepoPaths.xunwenDir(repoRoot);
-    Path pending = RepoPaths.pendingDir(repoRoot);
+    // 待分类/ 不可排除：其中的 PENDING/UNKNOWN 文件已被索引，排除会让 sync 把它们
+    // 当作"文件系统无"而清掉索引条目（已索引的会被 findByPath 命中跳过，不会重复处理）
     try (var walk = Files.walk(repoRoot)) {
       return walk.filter(Files::isRegularFile)
-          .filter(p -> !p.startsWith(xunwen) && !p.startsWith(pending))
+          .filter(p -> !p.startsWith(xunwen))
           .filter(
               p -> {
                 String n = p.getFileName().toString();

@@ -18,7 +18,6 @@ class OpenAiCompatClientTest {
   private String baseUrl;
   private final ObjectMapper json = new ObjectMapper();
   private final AtomicReference<String> lastChatBody = new AtomicReference<>();
-  private final AtomicReference<String> lastEmbedBody = new AtomicReference<>();
 
   @BeforeEach
   void setUp() throws Exception {
@@ -41,8 +40,7 @@ class OpenAiCompatClientTest {
     server.createContext(
         "/v1/embeddings",
         exchange -> {
-          lastEmbedBody.set(
-              new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+          exchange.getRequestBody().readAllBytes();
           byte[] resp =
               "{\"data\":[{\"index\":1,\"embedding\":[0.4,0.5]},{\"index\":0,\"embedding\":[0.1,0.2]}]}"
                   .getBytes(StandardCharsets.UTF_8);
@@ -61,19 +59,19 @@ class OpenAiCompatClientTest {
   }
 
   @Test
-  void chatSendsModelAndJsonFormatAndParsesContent() throws Exception {
-    var client = new OpenAiCompatClient(baseUrl, "sk-test", "m1", "e1", 2);
+  void chatSendsModelAndJsonFormatAndParsesContent() {
+    var client = new OpenAiCompatClient(baseUrl, "sk-test", "m1", "e1");
     String out = client.chat(List.of(LlmClient.Msg.system("sys"), LlmClient.Msg.user("usr")));
     assertEquals("{\"category\":\"工作文档\"}", out);
     JsonNode body = json.readTree(lastChatBody.get());
-    assertEquals("m1", body.get("model").asText());
-    assertEquals("json_object", body.get("response_format").get("type").asText());
+    assertEquals("m1", body.get("model").asString());
+    assertEquals("json_object", body.get("response_format").get("type").asString());
     assertEquals(2, body.get("messages").size());
   }
 
   @Test
   void embedAllSortsByIndex() {
-    var client = new OpenAiCompatClient(baseUrl, "", "m1", "e1", 2);
+    var client = new OpenAiCompatClient(baseUrl, "", "m1", "e1");
     List<float[]> vecs = client.embedAll(List.of("a", "b"));
     assertArrayEquals(new float[] {0.1f, 0.2f}, vecs.get(0));
     assertArrayEquals(new float[] {0.4f, 0.5f}, vecs.get(1));
@@ -81,7 +79,7 @@ class OpenAiCompatClientTest {
 
   @Test
   void embedSingleDelegates() {
-    var client = new OpenAiCompatClient(baseUrl, "", "m1", "e1", 2);
+    var client = new OpenAiCompatClient(baseUrl, "", "m1", "e1");
     assertArrayEquals(new float[] {0.1f, 0.2f}, client.embed("hello"));
   }
 }

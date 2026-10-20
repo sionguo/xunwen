@@ -23,7 +23,7 @@ class ReshuffleTaskTest {
 
   /** fake LLM：分类一律高置信「工作文档」 */
   private static LlmClient fakeLlm() {
-    return msgs ->
+    return _ ->
         """
         {"category":"工作文档","candidates":[
           {"name":"工作文档","score":0.95},{"name":"其他","score":0.1}],"self":0.95}
@@ -31,7 +31,7 @@ class ReshuffleTaskTest {
   }
 
   private static ContentExtractor fakeExtractor() {
-    return file -> new ContentExtractor.Extracted("测试内容足够长的一些文字用于通过文本层判断逻辑", true);
+    return _ -> new ContentExtractor.Extracted("测试内容足够长的一些文字用于通过文本层判断逻辑", true);
   }
 
   @Test
@@ -49,7 +49,7 @@ class ReshuffleTaskTest {
     assertTrue(Files.exists(root.resolve("工作文档/报告.txt")));
     assertTrue(Files.exists(root.resolve("工作文档/a.pdf")));
     assertFalse(Files.exists(root.resolve("手动目录"))); // 空壳目录已清理
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root), 4)) {
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
       assertTrue(idx.findByPath("工作文档/报告.txt").isPresent());
     }
     var log = new OperationLog(RepoPaths.operationsJsonl(root));
@@ -64,16 +64,16 @@ class ReshuffleTaskTest {
     Files.writeString(root.resolve("神秘文件.bin"), "短");
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));
-    LlmClient unknown = msgs -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
+    LlmClient unknown = _ -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
     new ReshuffleTask(root, CFG, unknown, fakeExtractor()).run(ReshuffleTask.Progress.noop());
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("神秘文件.bin")));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root), 4)) {
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
       assertEquals("UNKNOWN", idx.findByPath("待分类/神秘文件.bin").orElseThrow().status());
     }
   }
 
   @Test
-  void missingTreeFails(@TempDir Path root) throws Exception {
+  void missingTreeFails(@TempDir Path root) {
     var task = new ReshuffleTask(root, CFG, fakeLlm(), fakeExtractor());
     assertThrows(IllegalStateException.class, () -> task.run(ReshuffleTask.Progress.noop()));
   }

@@ -18,7 +18,7 @@ class ClassifierTest {
               new Category("其他", "", List.of())));
 
   private static LlmClient llmReturning(String json) {
-    return msgs -> json;
+    return _ -> json;
   }
 
   @Test
@@ -69,7 +69,7 @@ class ClassifierTest {
   void badJsonRetriesThenFallsBackToUnknown() {
     int[] calls = {0};
     LlmClient bad =
-        msgs -> {
+        _ -> {
           calls[0]++;
           return calls[0] == 1 ? "不是json" : "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
         };

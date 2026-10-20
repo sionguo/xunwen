@@ -24,7 +24,7 @@ public final class CategoryProposer {
     Map<String, List<Outcome>> byName = new LinkedHashMap<>();
     for (Outcome o : unknownOutcomes) {
       if (!o.proposedCategory().isBlank()) {
-        byName.computeIfAbsent(o.proposedCategory(), k -> new ArrayList<>()).add(o);
+        byName.computeIfAbsent(o.proposedCategory(), _ -> new ArrayList<>()).add(o);
       }
     }
     // 2. 相似拒绝
@@ -42,7 +42,9 @@ public final class CategoryProposer {
       }
       kept.add(
           new Proposal(
-              entry.getKey(), entry.getValue().get(0).proposalReason(), entry.getValue().size()));
+              entry.getKey(),
+              entry.getValue().getFirst().proposalReason(),
+              entry.getValue().size()));
     }
     // 3. 提议间聚合（贪心：与已保留项相似则并入）
     List<Proposal> merged = new ArrayList<>();
