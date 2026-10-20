@@ -108,4 +108,29 @@ class IngestTaskTest {
       assertEquals("PENDING", idx.findByPath("待分类/a.txt").orElseThrow().status());
     }
   }
+
+  @Test
+  void unindexedFileInsidePendingDirIsIndexedInPlace(@TempDir Path root) throws Exception {
+    prepareRepo(root);
+    Path pending = Files.createDirectories(RepoPaths.pendingDir(root));
+    Path f = pending.resolve("遗留文件.txt");
+    Files.writeString(f, "低置信内容");
+
+    int[] llmCalls = {0};
+    LlmClient counting =
+        _ -> {
+          llmCalls[0]++;
+          return "{\"category\":\"\",\"candidates\":[],\"self\":0.1}"; // UNKNOWN
+        };
+    var task = new IngestTask(root, CFG, counting, fakeExtractor());
+
+    task.sync();
+    assertTrue(Files.exists(pending.resolve("遗留文件.txt"))); // 未被改名/移动
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+      assertEquals("UNKNOWN", idx.findByPath("待分类/遗留文件.txt").orElseThrow().status());
+    }
+
+    assertEquals(0, task.sync()); // 第二轮：已入库，不再重复处理
+    assertEquals(1, llmCalls[0]); // 只调用过一次 LLM，无自重复循环
+  }
 }

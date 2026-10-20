@@ -54,7 +54,8 @@ public final class FileProcessor {
 
   public void process(Path file, CategoryTree tree, String batchId, RepoIndex index) {
     String name = file.getFileName().toString();
-    String relPath = posix(repoRoot.relativize(file.toAbsolutePath().normalize()));
+    Path src = file.toAbsolutePath().normalize();
+    String relPath = posix(repoRoot.relativize(src));
     try {
       if (index.findByPath(relPath).isPresent()) {
         return; // 已入库（中断续跑）
@@ -66,14 +67,23 @@ public final class FileProcessor {
           outcome.action() == Action.AUTO_MOVE
               ? repoRoot.resolve(outcome.categoryPath())
               : RepoPaths.pendingDir(repoRoot);
-      FileMover.MoveOutcome moved = mover.move(file, destDir);
-      if (moved.result() == FileMover.MoveResult.DUPLICATE_SKIPPED) {
-        return; // 重复副本留在原处（FR-5），不入索引
+      Path actual;
+      String hash;
+      if (destDir.equals(src.getParent())) {
+        // 已在目标目录（如待分类内未入库文件）：跳过移动与日志直接入库，消除 dest==src 自重复循环
+        actual = src;
+        hash = "";
+      } else {
+        FileMover.MoveOutcome moved = mover.move(src, destDir);
+        if (moved.result() == FileMover.MoveResult.DUPLICATE_SKIPPED) {
+          return; // 重复副本留在原处（FR-5），不入索引
+        }
+        actual = moved.dest();
+        hash = moved.hash();
+        log.append(
+            new OperationLog.Op(
+                batchId, System.currentTimeMillis(), "MOVE", file.toString(), actual.toString()));
       }
-      Path actual = moved.dest();
-      log.append(
-          new OperationLog.Op(
-              batchId, System.currentTimeMillis(), "MOVE", file.toString(), actual.toString()));
 
       String status =
           switch (outcome.action()) {
@@ -88,7 +98,7 @@ public final class FileProcessor {
               posix(repoRoot.relativize(actual)),
               actual.getFileName().toString(),
               ext(name),
-              moved.hash(),
+              hash,
               Files.getLastModifiedTime(actual).toMillis(),
               Files.size(actual),
               status,
