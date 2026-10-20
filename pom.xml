@@ -9,6 +9,14 @@
   <version>1.0-SNAPSHOT</version>
   <name>xunwen</name>
 
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <properties>
     <java.version>25</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -16,6 +24,8 @@
     <javafx.version>27</javafx.version>
     <lucene.version>10.5.2</lucene.version>
     <jspecify.version>1.0.1</jspecify.version>
+    <jackson.version>3.2.4</jackson.version>
+    <tika.version>4.1.0</tika.version>
 
     <junit.version>5.12.1</junit.version>
   </properties>
@@ -74,6 +84,38 @@
       <artifactId>lucene-queryparser</artifactId>
       <version>${lucene.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analysis-smartcn</artifactId>
+      <version>${lucene.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>tools.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tika</groupId>
+      <artifactId>tika-parsers-standard-package</artifactId>
+      <version>${tika.version}</version>
+      <type>pom</type>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tika</groupId>
+      <artifactId>tika-pipes-fork-parser</artifactId>
+      <version>${tika.version}</version>
+      <exclusions>
+        <exclusion> <!-- 保 SLF4J 唯一 provider = logback，防 log4j-slf4j2-impl 抢绑定 -->
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j-slf4j2-impl</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
 
     <dependency>
       <groupId>org.jspecify</groupId>
@@ -107,6 +149,14 @@
         </configuration>
       </plugin>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+        <configuration> <!-- 防 fork 子进程拿到 manifest-only 假 classpath：surefire 默认用 manifest jar 启动 -->
+          <useSystemClassLoader>false</useSystemClassLoader>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.openjfx</groupId>
         <artifactId>javafx-maven-plugin</artifactId>
         <version>0.0.8</version>
@@ -115,7 +165,7 @@
             <!-- Default configuration for running with: mvn clean javafx:run -->
             <id>default-cli</id>
             <configuration>
-              <mainClass>cn.guoxy.xunwen/cn.guoxy.xunwen.HelloApplication</mainClass>
+              <mainClass>cn.guoxy.xunwen.Launcher</mainClass>
               <launcher>app</launcher>
               <jlinkZipName>app</jlinkZipName>
               <jlinkImageName>app</jlinkImageName>
