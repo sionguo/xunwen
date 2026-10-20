@@ -29,6 +29,9 @@ public record CategoryTree(List<Category> roots) {
       return Optional.empty();
     }
     String[] parts = categoryPath.split("/");
+    if (parts.length > 2) {
+      return Optional.empty(); // 体系最多两级：更深的路径按 UNKNOWN 分流（FR-3）
+    }
     Optional<Category> root = roots.stream().filter(c -> c.name().equals(parts[0])).findFirst();
     if (parts.length == 1) {
       return root;
