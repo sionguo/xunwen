@@ -23,14 +23,15 @@ public final class FileMover {
   }
 
   public MoveOutcome move(Path src, Path destDir) throws IOException {
-    String hash = sha256(src);
     Path absDestDir = destDir.toAbsolutePath().normalize();
     Files.createDirectories(absDestDir);
     String name = src.getFileName().toString();
     Path target = absDestDir.resolve(name);
     MoveResult result = MoveResult.MOVED;
+    String hash = ""; // lazy：无同名冲突时不读内容，纯 rename（零拷贝且零读取）
 
     if (Files.exists(target)) {
+      hash = sha256(src);
       if (sha256(target).equals(hash)) {
         return new MoveOutcome(MoveResult.DUPLICATE_SKIPPED, target, hash); // FR-5
       }
