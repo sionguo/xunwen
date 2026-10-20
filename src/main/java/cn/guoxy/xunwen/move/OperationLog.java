@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 public final class OperationLog {
@@ -34,8 +35,13 @@ public final class OperationLog {
     }
     List<Op> out = new ArrayList<>();
     for (String line : Files.readAllLines(file, java.nio.charset.StandardCharsets.UTF_8)) {
-      if (!line.isBlank()) {
+      if (line.isBlank()) {
+        continue;
+      }
+      try {
         out.add(JSON.readValue(line, Op.class));
+      } catch (JacksonException e) {
+        // 只容忍崩溃残留的尾部半行：跳过损坏行，回滚不受影响
       }
     }
     return out;
