@@ -56,13 +56,7 @@ public final class FileProcessor {
     String name = file.getFileName().toString();
     String relPath = posix(repoRoot.relativize(file.toAbsolutePath().normalize()));
     try {
-      boolean indexed;
-      try {
-        indexed = index.findByPath(relPath).isPresent();
-      } catch (IOException emptyIndex) {
-        indexed = false; // 全新空索引尚无 segments 文件，Lucene 抛 IOException：视为未入库
-      }
-      if (indexed) {
+      if (index.findByPath(relPath).isPresent()) {
         return; // 已入库（中断续跑）
       }
       ContentExtractor.Extracted ex = extractor.extract(file);

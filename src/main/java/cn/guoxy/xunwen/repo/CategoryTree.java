@@ -1,6 +1,7 @@
 package cn.guoxy.xunwen.repo;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,7 @@ public record CategoryTree(List<Category> roots) {
   record YamlRoot(List<Category> categories) {}
 
   public void save(Path yaml) throws IOException {
+    Files.createDirectories(yaml.getParent());
     YAML.writeValue(yaml.toFile(), new YamlRoot(roots));
   }
 

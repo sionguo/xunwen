@@ -40,7 +40,6 @@ class ReshuffleTaskTest {
     Path nested = Files.createDirectories(root.resolve("手动目录")).resolve("a.pdf");
     Files.writeString(nested, "pdf 内容");
 
-    Files.createDirectories(RepoPaths.xunwenDir(root));
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));
 
@@ -63,7 +62,6 @@ class ReshuffleTaskTest {
   @Test
   void lowConfidenceGoesToPendingDir(@TempDir Path root) throws Exception {
     Files.writeString(root.resolve("神秘文件.bin"), "短");
-    Files.createDirectories(RepoPaths.xunwenDir(root));
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));
     LlmClient unknown = msgs -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
@@ -83,7 +81,6 @@ class ReshuffleTaskTest {
   @Test
   void alreadyIndexedFileIsSkippedOnRerun(@TempDir Path root) throws Exception {
     Files.writeString(root.resolve("报告.txt"), "内容");
-    Files.createDirectories(RepoPaths.xunwenDir(root));
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));
     var task = new ReshuffleTask(root, CFG, fakeLlm(), fakeExtractor());

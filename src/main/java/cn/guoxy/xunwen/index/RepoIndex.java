@@ -13,6 +13,7 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -24,6 +25,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.store.FSDirectory;
 
 public final class RepoIndex implements AutoCloseable {
@@ -101,6 +103,8 @@ public final class RepoIndex implements AutoCloseable {
                 d.getField(F_SIZE).numericValue().longValue()));
       }
       return out;
+    } catch (IndexNotFoundException emptyIndex) {
+      return List.of(); // 全新索引尚无 segments 文件：空结果
     }
   }
 
@@ -131,6 +135,8 @@ public final class RepoIndex implements AutoCloseable {
                 d.get(F_CONTENT)));
       }
       return out;
+    } catch (IndexNotFoundException emptyIndex) {
+      return List.of(); // 全新索引尚无 segments 文件：空结果
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
@@ -139,6 +145,9 @@ public final class RepoIndex implements AutoCloseable {
   private TopDocs search(Query q, int k) throws IOException {
     try (IndexReader reader = reader()) {
       return new IndexSearcher(reader).search(q, k);
+    } catch (IndexNotFoundException emptyIndex) {
+      // 全新索引尚无 segments 文件：空结果（findByPath/searchKeyword/searchKnn 共用此路径）
+      return new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
     }
   }
 
