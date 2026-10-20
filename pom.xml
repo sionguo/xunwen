@@ -142,6 +142,7 @@
         <configuration>
           <java>
             <googleJavaFormat>
+              <version>1.33.0</version>
               <style>GOOGLE</style>
               <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
