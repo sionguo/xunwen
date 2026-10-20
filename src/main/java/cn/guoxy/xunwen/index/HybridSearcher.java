@@ -39,9 +39,13 @@ public final class HybridSearcher {
     Map<String, Query> kwQueries = new HashMap<>();
 
     try (SmartChineseAnalyzer analyzer = new SmartChineseAnalyzer()) {
+      // 零向量无方向信号，cosine 相似度无意义（Lucene 对零向量直接断言失败）：
+      // 此时跳过 KNN 路，仅关键词路出结果
+      boolean hasVecSignal = !isAllZero(queryVec);
       for (var entry : indices.entrySet()) {
         RepoIndex idx = entry.getValue();
-        List<StoredDoc> knnDocs = idx.storedOf(idx.searchKnn(queryVec, CANDIDATES).scoreDocs);
+        List<StoredDoc> knnDocs =
+            hasVecSignal ? idx.storedOf(idx.searchKnn(queryVec, CANDIDATES).scoreDocs) : List.of();
         ScoreDoc[] kwHits = idx.searchKeyword(query, CANDIDATES);
         List<StoredDoc> kwDocs = idx.storedOf(kwHits);
         Query kwQuery =
@@ -75,6 +79,15 @@ public final class HybridSearcher {
     } catch (Exception e) {
       throw new IllegalStateException("Hybrid search failed: " + query, e);
     }
+  }
+
+  private static boolean isAllZero(float[] v) {
+    for (float x : v) {
+      if (x != 0f) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static void accumulate(Map<String, Acc> acc, StoredDoc d, String repoName, int rank) {
