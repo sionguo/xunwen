@@ -79,7 +79,7 @@ class EndToEndSmokeTest {
     new IngestTask(root, cfg, llm, EXTRACTOR).ingest(List.of(newFile));
     assertTrue(Files.exists(root.resolve("工作文档/新通知.txt")));
 
-    // 5. 混合搜索（fake embedding 由零向量兜底，关键词路生效）
+    // 5. 混合搜索（fake LLM 无嵌入能力，文档向量由单位向量兜底；查询侧零向量故仅关键词路生效）
     try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
       var indices = new LinkedHashMap<String, RepoIndex>();
       indices.put("测试仓库", idx);
@@ -92,5 +92,8 @@ class EndToEndSmokeTest {
     new OperationLog(RepoPaths.operationsJsonl(root)).rollback(batch);
     assertTrue(Files.exists(root.resolve("季度报告.txt")));
     assertTrue(Files.exists(sub)); // 旧结构里的发票.txt 回到原位
+    assertFalse(Files.exists(root.resolve("工作文档/季度报告.txt"))); // 类别目录下不留残留
+    assertFalse(Files.exists(root.resolve("新通知.txt"))); // ingest 批次不随重排回滚，仍在其类别目录
+    assertTrue(Files.exists(root.resolve("工作文档/新通知.txt")));
   }
 }

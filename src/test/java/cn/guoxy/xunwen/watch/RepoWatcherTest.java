@@ -51,4 +51,19 @@ class RepoWatcherTest {
       assertTrue(w.drainStable().isEmpty());
     }
   }
+
+  @Test
+  void stableEntryKeptUntilSecondSampleConfirms(@TempDir Path root) throws Exception {
+    try (RepoWatcher w = new RepoWatcher(root, Duration.ofSeconds(6))) {
+      w.start();
+      Path f = root.resolve("双采样.txt");
+      Files.writeString(f, "内容");
+      Thread.sleep(4000); // macOS PollingWatchService 2s 轮询，等待事件入队
+      w.pollEvents();
+      // 首次采样仍在稳定窗口内（<6s）：不驱逐也不上报，条目保留待下次采样
+      assertTrue(w.drainStable().isEmpty());
+      Thread.sleep(3000); // 窗口已过且期间无新事件
+      assertTrue(w.drainStable().contains(f)); // 第二次采样确认稳定后才上报
+    }
+  }
 }
