@@ -79,6 +79,19 @@ class ClassifierTest {
   }
 
   @Test
+  void transportFailurePropagatesWithoutRetry() {
+    int[] calls = {0};
+    LlmClient down =
+        _ -> {
+          calls[0]++;
+          throw new IllegalStateException("LLM chat failed");
+        };
+    var classifier = new Classifier(down, GlobalConfig.defaults());
+    assertThrows(IllegalStateException.class, () -> classifier.classify("f.txt", "x", true, TREE));
+    assertEquals(1, calls[0]); // 传输失败不重试：LLM 不可达 ≠ 模型说不知道
+  }
+
+  @Test
   void proposalCarriedThrough() {
     var llm =
         llmReturning(

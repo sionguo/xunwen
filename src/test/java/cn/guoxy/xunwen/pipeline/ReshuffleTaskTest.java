@@ -79,6 +79,24 @@ class ReshuffleTaskTest {
   }
 
   @Test
+  void llmTransportFailureLeavesFilesInPlace(@TempDir Path root) throws Exception {
+    Files.writeString(root.resolve("报告.txt"), "内容");
+    new CategoryTree(List.of(new Category("工作文档", "", List.of())))
+        .save(RepoPaths.categoriesYaml(root));
+    LlmClient down =
+        _ -> {
+          throw new IllegalStateException("LLM chat failed");
+        };
+    var task = new ReshuffleTask(root, CFG, down, fakeExtractor());
+    assertDoesNotThrow(() -> task.run(ReshuffleTask.Progress.noop())); // 跳过而非整批崩
+    assertTrue(Files.exists(root.resolve("报告.txt"))); // 留在原处，不进待分类
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+      assertTrue(idx.findByPath("待分类/报告.txt").isEmpty()); // 未被当作 UNKNOWN 入库
+      assertTrue(idx.findByPath("工作文档/报告.txt").isEmpty()); // 未被索引
+    }
+  }
+
+  @Test
   void alreadyIndexedFileIsSkippedOnRerun(@TempDir Path root) throws Exception {
     Files.writeString(root.resolve("报告.txt"), "内容");
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))

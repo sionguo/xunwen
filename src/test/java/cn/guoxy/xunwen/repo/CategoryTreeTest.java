@@ -33,6 +33,12 @@ class CategoryTreeTest {
   }
 
   @Test
+  void findRejectsDeeperThanTwoLevels() {
+    assertTrue(sample().find("工作文档/报告/2024").isEmpty()); // 超两级不在体系内 → UNKNOWN 分流
+    assertTrue(sample().find("工作文档/报告").isPresent()); // 两级仍正常解析
+  }
+
+  @Test
   void yamlRoundTrip(@TempDir Path dir) throws IOException {
     Path yaml = dir.resolve("categories.yaml");
     sample().save(yaml);

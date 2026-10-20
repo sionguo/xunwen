@@ -28,6 +28,15 @@ class TikaExtractorTest {
   }
 
   @Test
+  void shortParsedTextKeepsContentWithoutTextLayer(@TempDir Path dir) throws Exception {
+    Path f = dir.resolve("short.txt");
+    Files.writeString(f, "短文本", StandardCharsets.UTF_8); // Tika 解析成功但剥后 < 20 字符
+    var out = new TikaExtractor().extract(f);
+    assertFalse(out.hasTextLayer()); // 长度检查路径：hasTextLayer=false
+    assertTrue(out.text().contains("短文本")); // 文本保留，不因短而丢弃
+  }
+
+  @Test
   void truncatesToMaxChars(@TempDir Path dir) throws Exception {
     Path f = dir.resolve("big.txt");
     Files.writeString(f, "字".repeat(50_000));
