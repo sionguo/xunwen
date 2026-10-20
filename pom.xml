@@ -97,6 +97,17 @@
       <version>${tika.version}</version>
       <type>pom</type>
     </dependency>
+    <dependency>
+      <groupId>org.apache.tika</groupId>
+      <artifactId>tika-pipes-fork-parser</artifactId>
+      <version>${tika.version}</version>
+      <exclusions>
+        <exclusion> <!-- 保 SLF4J 唯一 provider = logback，防 log4j-slf4j2-impl 抢绑定 -->
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j-slf4j2-impl</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
 
     <dependency>
       <groupId>org.jspecify</groupId>
@@ -133,6 +144,9 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.2</version>
+        <configuration> <!-- 防 fork 子进程拿到 manifest-only 假 classpath：surefire 默认用 manifest jar 启动 -->
+          <useSystemClassLoader>false</useSystemClassLoader>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.openjfx</groupId>
