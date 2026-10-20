@@ -34,4 +34,16 @@ class TikaExtractorTest {
     var out = new TikaExtractor(10_000).extract(f);
     assertEquals(10_000, out.text().length());
   }
+
+  @Test
+  void closesAndRebuildsShared(@TempDir Path dir) throws Exception {
+    Path f = dir.resolve("b.txt");
+    Files.writeString(f, "这是一份关于年度审计报告的文档，包含详尽的核对说明。", StandardCharsets.UTF_8);
+    var first = new TikaExtractor().extract(f); // 确保 shared 已创建
+    assertTrue(first.hasTextLayer());
+    TikaExtractor.closeShared();
+    var out = new TikaExtractor().extract(f);
+    assertTrue(out.hasTextLayer());
+    assertTrue(out.text().contains("年度审计"));
+  }
 }

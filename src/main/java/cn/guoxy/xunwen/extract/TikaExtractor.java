@@ -14,6 +14,11 @@ public final class TikaExtractor implements ContentExtractor {
   private static final long PARSE_TIMEOUT_MS = 60_000;
   private static volatile PipesForkParser shared; // 创建一次复用（官方：thread-safe，每实例一个 fork 池）
 
+  static { // 类级资源：fork JVM 池随进程退出释放（AppState 每次 new 实例，实例 close 会关掉共享池）
+    Runtime.getRuntime()
+        .addShutdownHook(new Thread(TikaExtractor::closeShared, "tika-fork-shutdown"));
+  }
+
   private final int maxChars;
 
   public TikaExtractor() {
@@ -40,6 +45,18 @@ public final class TikaExtractor implements ContentExtractor {
     } catch (Throwable e) {
       // 与 fork 的通信失败等极端情况
       return new Extracted("", false);
+    }
+  }
+
+  // 包级可见供测试；synchronized 与 DCL 同锁（TikaExtractor.class），close 与重建不竞争
+  static synchronized void closeShared() {
+    if (shared != null) {
+      try {
+        shared.close();
+      } catch (Throwable ignored) {
+        // 关闭失败无需处理：进程即将退出
+      }
+      shared = null; // 置 null 走已有 DCL 重建路径（close 后再 extract 仍可用）
     }
   }
 
