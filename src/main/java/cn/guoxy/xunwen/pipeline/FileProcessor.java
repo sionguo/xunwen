@@ -95,8 +95,8 @@ public final class FileProcessor {
               outcome.action() == Action.AUTO_MOVE ? outcome.categoryPath() : "",
               text,
               embedSafely(embedText)));
-    } catch (IOException e) {
-      // Windows 占用等移动失败：本批跳过，下轮再处理，不让整批任务崩
+    } catch (IOException | IllegalStateException e) {
+      // 移动失败（Windows 占用等）或 LLM 传输失败：本批跳过，下轮再处理，不让整批任务崩
       System.err.println("[xunwen] 跳过无法处理的文件: " + relPath + " (" + e + ")");
     }
   }

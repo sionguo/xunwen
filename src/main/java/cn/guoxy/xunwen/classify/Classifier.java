@@ -5,6 +5,7 @@ import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import java.util.ArrayList;
 import java.util.List;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -40,8 +41,8 @@ public final class Classifier {
             JSON.readTree(
                 llm.chat(List.of(LlmClient.Msg.system(SYSTEM_RULES), LlmClient.Msg.user(prompt))));
         return toOutcome(node, hasTextLayer, tree);
-      } catch (Exception parseFailure) {
-        // 两次均失败则走循环外兜底
+      } catch (JacksonException parseFailure) {
+        // 两次均解析失败则走循环外兜底；传输异常（LLM 不可达）不在此捕获，避免误判 UNKNOWN
       }
     }
     return new Outcome(Action.UNKNOWN, "", 0.0, "", "");
