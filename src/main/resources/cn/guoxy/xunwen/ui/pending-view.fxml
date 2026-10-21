@@ -3,6 +3,7 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
@@ -16,7 +17,14 @@
     <Button text="忽略提议" onAction="#onIgnoreProposal"/>
   </HBox>
   <Label text="待审文件（低置信 / 未知）"/>
-  <TableView fx:id="table" prefHeight="300"/>
+  <TableView fx:id="table" prefHeight="300">
+    <columns>
+      <TableColumn fx:id="nameCol" text="文件名" prefWidth="280"/>
+      <TableColumn fx:id="statusCol" text="状态" prefWidth="90"/>
+      <TableColumn fx:id="categoryCol" text="选择类别" prefWidth="230"/>
+      <TableColumn fx:id="actionCol" text="操作" prefWidth="100"/>
+    </columns>
+  </TableView>
   <Separator/>
   <HBox spacing="10">
     <Label text="提议的新类别"/>
