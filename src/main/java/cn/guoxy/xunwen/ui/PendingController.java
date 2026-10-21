@@ -5,6 +5,7 @@ import cn.guoxy.xunwen.classify.Classifier;
 import cn.guoxy.xunwen.classify.Classifier.Outcome;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
+import cn.guoxy.xunwen.llm.EmbeddingClient;
 import cn.guoxy.xunwen.pipeline.ApprovalService;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -116,7 +117,7 @@ public class PendingController {
             outcomes.add(classifier.classify(d.name(), ex.text(), ex.hasTextLayer(), tree));
           }
           List<CategoryProposer.Proposal> ps =
-              new CategoryProposer(state.llm()).aggregate(outcomes, tree);
+              new CategoryProposer(safeEmbedder()).aggregate(outcomes, tree);
           return new LoadResult(pending, unknown, tree.flattenPaths(), ps);
         },
         r -> {
@@ -229,5 +230,24 @@ public class PendingController {
       Fx.alert("先在「仓库」页打开仓库");
     }
     return repo;
+  }
+
+  /** 向量服务不可用时退化为零向量（聚合只做同名合并），不阻塞待审页加载。 */
+  private EmbeddingClient safeEmbedder() {
+    return new EmbeddingClient() {
+      @Override
+      public float[] embed(String text) {
+        try {
+          return state.llm().embed(text);
+        } catch (RuntimeException e) {
+          return new float[state.config().vectorDim()];
+        }
+      }
+
+      @Override
+      public List<float[]> embedAll(List<String> texts) {
+        return texts.stream().map(this::embed).toList();
+      }
+    };
   }
 }
