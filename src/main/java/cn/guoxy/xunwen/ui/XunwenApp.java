@@ -10,6 +10,7 @@ import javafx.stage.Stage;
 
 public class XunwenApp extends Application {
   private AppState state;
+  private WatchServiceBinder binder;
 
   @Override
   public void init() throws IOException {
@@ -26,5 +27,13 @@ public class XunwenApp extends Application {
     stage.setTitle("寻文");
     stage.setScene(new Scene(root, 1280, 800));
     stage.show();
+    binder = new WatchServiceBinder(state); // 打开仓库即自动启动监视，关闭应用时停止
+  }
+
+  @Override
+  public void stop() {
+    if (binder != null) {
+      binder.close();
+    }
   }
 }
