@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.StackPane?>
-<StackPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
-  <Label text="建设中"/>
-</StackPane>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<VBox spacing="10" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+  <padding><Insets top="16" right="16" bottom="16" left="16"/></padding>
+  <HBox spacing="10">
+    <Button text="按所选全部归位" onAction="#onApproveAll"/>
+    <Button text="批准为新类别" onAction="#onApproveProposal"/>
+    <Button text="忽略提议" onAction="#onIgnoreProposal"/>
+  </HBox>
+  <Label text="待审文件（低置信 / 未知）"/>
+  <TableView fx:id="table" prefHeight="300"/>
+  <Separator/>
+  <HBox spacing="10">
+    <Label text="提议的新类别"/>
+    <ListView fx:id="proposals" prefHeight="160" prefWidth="560"/>
+  </HBox>
+</VBox>
