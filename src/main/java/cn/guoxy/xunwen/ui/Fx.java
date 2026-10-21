@@ -26,17 +26,27 @@ public final class Fx {
         });
   }
 
-  /** 引擎任务专用：全局锁串行化（防 Lucene 写锁冲突），其余同 runAsync。 */
+  /** 允许抛受检异常的引擎任务（引擎方法普遍 throws IOException，Supplier 装不下）。 */
+  @FunctionalInterface
+  public interface EngineTask<T> {
+    T run() throws Exception;
+  }
+
+  /** 引擎任务专用：全局锁串行化（防 Lucene 写锁冲突），后台虚拟线程执行，FX 线程回调。 */
   public static <T> void runEngine(
-      AppState state, Supplier<T> job, Consumer<T> onDone, Consumer<Throwable> onError) {
-    runAsync(
+      AppState state, EngineTask<T> job, Consumer<T> onDone, Consumer<Throwable> onError) {
+    POOL.execute(
         () -> {
-          synchronized (state.engineLock()) {
-            return job.get();
+          try {
+            T result;
+            synchronized (state.engineLock()) {
+              result = job.run();
+            }
+            Platform.runLater(() -> onDone.accept(result));
+          } catch (Throwable t) {
+            Platform.runLater(() -> onError.accept(t));
           }
-        },
-        onDone,
-        onError);
+        });
   }
 
   public static void alert(String msg) {
