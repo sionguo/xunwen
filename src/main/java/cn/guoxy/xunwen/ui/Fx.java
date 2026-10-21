@@ -3,7 +3,6 @@ package cn.guoxy.xunwen.ui;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 
@@ -14,11 +13,11 @@ public final class Fx {
   private Fx() {}
 
   public static <T> void runAsync(
-      Supplier<T> job, Consumer<T> onDone, Consumer<Throwable> onError) {
+      EngineTask<T> job, Consumer<T> onDone, Consumer<Throwable> onError) {
     POOL.execute(
         () -> {
           try {
-            T result = job.get();
+            T result = job.run();
             Platform.runLater(() -> onDone.accept(result));
           } catch (Throwable t) {
             Platform.runLater(() -> onError.accept(t));

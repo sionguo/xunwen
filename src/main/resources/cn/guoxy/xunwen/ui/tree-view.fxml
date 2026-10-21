@@ -1,7 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.StackPane?>
-<StackPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
-  <Label text="建设中"/>
-</StackPane>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.control.TreeView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+  <top>
+    <ToolBar>
+      <Button text="生成类别树提案" onAction="#onGenerateProposal"/>
+      <Button text="批准入树" onAction="#onApproveProposal"/>
+      <Button text="放弃提案" onAction="#onDiscardProposal"/>
+      <Button text="重排仓库" onAction="#onReshuffle"/>
+      <Button text="取消重排" onAction="#onCancelReshuffle"/>
+      <Button text="回滚批次" onAction="#onRollback"/>
+    </ToolBar>
+  </top>
+  <center>
+    <TreeView fx:id="tree"/>
+  </center>
+  <bottom>
+    <HBox spacing="10">
+      <padding><Insets top="6" right="12" bottom="6" left="12"/></padding>
+      <ProgressBar fx:id="progress" prefWidth="220" visible="false"/>
+      <Label fx:id="status"/>
+    </HBox>
+  </bottom>
+</BorderPane>
