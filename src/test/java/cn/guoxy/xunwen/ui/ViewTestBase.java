@@ -38,6 +38,7 @@ public abstract class ViewTestBase extends ApplicationTest {
             throw new UncheckedIOException(e);
           }
         });
+    targetWindow(TestApp.stage); // 原生键盘事件(write/eraseText)需要明确目标窗口
   }
 
   protected boolean dialogVisible() {
@@ -74,6 +75,11 @@ public abstract class ViewTestBase extends ApplicationTest {
               }
               return null;
             });
+  }
+
+  /** 原生鼠标点击节点（按其屏幕坐标），需要 macOS 辅助功能授权；弹 showAndWait 的按钮不可用（死锁）。 */
+  protected void nativeClick(javafx.scene.Node node) {
+    clickOn(point(node));
   }
 
   /** 事件级点击：不依赖 macOS 辅助功能权限。只投递不等待——handler 若弹 showAndWait 对话框会阻塞 FX 线程，同步等待会死锁。 */
