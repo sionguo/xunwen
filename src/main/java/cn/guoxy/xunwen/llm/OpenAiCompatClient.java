@@ -9,12 +9,15 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
+  private static final Logger LOG = LoggerFactory.getLogger(OpenAiCompatClient.class);
   private static final ObjectMapper JSON = new ObjectMapper();
   private final HttpClient http =
       HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
@@ -78,16 +81,35 @@ public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
   }
 
   private JsonNode post(String url, ObjectNode body) throws IOException, InterruptedException {
+    String kind = url.endsWith("/embeddings") ? "embed" : "chat";
+    String model = body.path("model").asString("");
+    String payload = JSON.writeValueAsString(body);
     var req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(5));
     req.header("Content-Type", "application/json");
     if (!apiKey.isBlank()) {
       req.header("Authorization", "Bearer " + apiKey);
     }
-    req.POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)));
+    req.POST(HttpRequest.BodyPublishers.ofString(payload));
+    long begin = System.nanoTime();
     HttpResponse<String> resp = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
+    long ms = (System.nanoTime() - begin) / 1_000_000;
     if (resp.statusCode() != 200) {
+      LOG.warn(
+          "LLM {} 失败：模型={} HTTP {} 请求 {} 字节 耗时 {} ms",
+          kind,
+          model,
+          resp.statusCode(),
+          payload.length(),
+          ms);
       throw new IOException("HTTP " + resp.statusCode() + ": " + resp.body());
     }
+    LOG.info(
+        "LLM {}：模型={} 请求 {} 字节 响应 {} 字节 耗时 {} ms",
+        kind,
+        model,
+        payload.length(),
+        resp.body().length(),
+        ms);
     return JSON.readTree(resp.body());
   }
 }
