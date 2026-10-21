@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+  <left>
+    <VBox spacing="8">
+      <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+      <Button fx:id="reposBtn" text="仓库" maxWidth="Infinity"/>
+      <Button fx:id="treeBtn" text="类别树" maxWidth="Infinity"/>
+      <Button fx:id="pendingBtn" text="待审" maxWidth="Infinity"/>
+      <Button fx:id="searchBtn" text="搜索" maxWidth="Infinity"/>
+      <Button fx:id="settingsBtn" text="设置" maxWidth="Infinity"/>
+    </VBox>
+  </left>
+  <center>
+    <StackPane fx:id="content" prefWidth="900"/>
+  </center>
+</BorderPane>
