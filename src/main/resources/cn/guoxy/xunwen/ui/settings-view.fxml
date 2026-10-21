@@ -1,7 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.StackPane?>
-<StackPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
-  <Label text="建设中"/>
-</StackPane>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<VBox spacing="12" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+  <padding><Insets top="16" right="16" bottom="16" left="16"/></padding>
+  <Label text="LLM 服务设置" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+  <GridPane hgap="12" vgap="10">
+    <columnConstraints>
+      <ColumnConstraints minWidth="110"/>
+      <ColumnConstraints minWidth="360"/>
+    </columnConstraints>
+    <Label text="服务地址" GridPane.rowIndex="0"/>
+    <TextField fx:id="baseUrl" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+    <Label text="API Key" GridPane.rowIndex="1"/>
+    <TextField fx:id="apiKey" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+    <Label text="对话模型" GridPane.rowIndex="2"/>
+    <TextField fx:id="chatModel" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+    <Label text="Embedding 模型" GridPane.rowIndex="3"/>
+    <TextField fx:id="embedModel" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+    <Label text="向量维度" GridPane.rowIndex="4"/>
+    <TextField fx:id="vectorDim" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+    <Label text="自动归档阈值" GridPane.rowIndex="5"/>
+    <TextField fx:id="autoThreshold" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+    <Label text="待审阈值" GridPane.rowIndex="6"/>
+    <TextField fx:id="pendingThreshold" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+    <Label text="并发数" GridPane.rowIndex="7"/>
+    <TextField fx:id="concurrency" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+  </GridPane>
+  <HBox spacing="10">
+    <Button text="保存" onAction="#onSave"/>
+    <Button text="测试连接" onAction="#onTestConnection"/>
+  </HBox>
+</VBox>

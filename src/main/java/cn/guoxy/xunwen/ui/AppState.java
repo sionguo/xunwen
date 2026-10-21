@@ -5,7 +5,6 @@ import cn.guoxy.xunwen.config.GlobalConfigStore;
 import cn.guoxy.xunwen.config.RepoRegistry;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.extract.TikaExtractor;
-import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.llm.OpenAiCompatClient;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -59,7 +58,7 @@ public final class AppState {
     return engineLock;
   }
 
-  public LlmClient llm() {
+  public OpenAiCompatClient llm() {
     GlobalConfig c = config.get();
     return new OpenAiCompatClient(c.baseUrl(), c.apiKey(), c.chatModel(), c.embedModel());
   }
