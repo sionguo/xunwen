@@ -18,6 +18,8 @@ class ColdStartSamplerTest {
     Files.writeString(root.resolve(".hidden"), "隐藏");
     Files.createDirectories(root.resolve(".xunwen"));
     Files.writeString(root.resolve(".xunwen/secret.txt"), "内部文件");
+    Files.createDirectories(root.resolve(".index")); // 隐藏目录内的缓存文件同样要跳过
+    Files.writeString(root.resolve(".index/app.db"), "索引缓存");
     Files.createDirectories(root.resolve("待分类"));
     Files.writeString(root.resolve("待分类/低置信.txt"), "待分类文件不应采样");
 

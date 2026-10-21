@@ -28,12 +28,8 @@ public final class ColdStartSampler {
     try (var walk = Files.walk(root)) {
       files =
           walk.filter(Files::isRegularFile)
+              .filter(p -> !RepoPaths.isSkippable(root, p))
               .filter(p -> !p.startsWith(xunwen) && !p.startsWith(pending))
-              .filter(
-                  p -> {
-                    String n = p.getFileName().toString();
-                    return !n.startsWith(".") && !n.startsWith("~$");
-                  })
               .limit(limit)
               .toList();
       for (int i = 0; i < files.size(); i++) {
