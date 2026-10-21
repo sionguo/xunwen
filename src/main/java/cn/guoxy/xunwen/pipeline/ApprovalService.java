@@ -153,6 +153,24 @@ public final class ApprovalService {
     }
   }
 
+  /** 回滚批次：移回文件 → 删落点索引条目 → 原路径记入抑制清单（sync 不再自动移走，重排时重新确认）。返回还原文件数。 */
+  public int rollbackBatch(String batchId) throws IOException {
+    OperationLog log = new OperationLog(RepoPaths.operationsJsonl(repoRoot));
+    List<OperationLog.Op> reverted = log.rollback(batchId);
+    if (reverted.isEmpty()) {
+      return 0;
+    }
+    List<String> restored = new ArrayList<>();
+    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+      for (OperationLog.Op op : reverted) {
+        index.deleteByPath(FileProcessor.posix(repoRoot.relativize(Path.of(op.dest()))));
+        restored.add(FileProcessor.posix(repoRoot.relativize(Path.of(op.src()))));
+      }
+    }
+    RollbackSuppress.addAll(repoRoot, restored);
+    return restored.size();
+  }
+
   private static List<Category> append(List<Category> children, Category node) {
     List<Category> out = new ArrayList<>(children);
     out.add(node);

@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** 增量入库与积压同步（FR-12：以文件系统为准修正索引）。 */
 public final class IngestTask {
@@ -29,9 +30,14 @@ public final class IngestTask {
   public List<MoveRecord> ingest(List<Path> newFiles) throws IOException {
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
     String batchId = "ingest-" + System.currentTimeMillis();
+    Set<String> suppressed = RollbackSuppress.load(repoRoot);
     List<MoveRecord> done = new ArrayList<>();
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (Path f : newFiles) {
+        String rel = FileProcessor.posix(repoRoot.relativize(f.toAbsolutePath().normalize()));
+        if (suppressed.contains(rel)) {
+          continue; // 回滚还原的文件：不自动重新入库（FR-4），重排时重新确认
+        }
         Path dest = processor.process(f, tree, batchId, index);
         if (dest != null) {
           done.add(new MoveRecord(batchId, f, dest));
@@ -63,9 +69,13 @@ public final class IngestTask {
           index.deleteByPath(info.path()); // 下面的 process 会重新提取入库
         }
       }
-      // 2. 文件系统有、索引无 → 入库
+      // 2. 文件系统有、索引无 → 入库（回滚抑制清单内的跳过）
+      Set<String> suppressed = RollbackSuppress.load(repoRoot);
       for (Path p : walkFiles()) {
         String rel = FileProcessor.posix(repoRoot.relativize(p));
+        if (suppressed.contains(rel)) {
+          continue; // 回滚还原的文件不自动入库
+        }
         if (index.findByPath(rel).isEmpty()) {
           processor.process(p, tree, batchId, index);
           processed++;

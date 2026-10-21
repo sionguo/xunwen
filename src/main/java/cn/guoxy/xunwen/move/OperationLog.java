@@ -53,9 +53,10 @@ public final class OperationLog {
         .toList();
   }
 
-  /** 逆序回滚一个批次（FR-4）。目标已存在的条目跳过。 */
-  public void rollback(String batchId) throws IOException {
+  /** 逆序回滚一个批次（FR-4），返回成功还原的条目（src=原路径,dest=类别内落点）。目标已存在的条目跳过。 */
+  public List<Op> rollback(String batchId) throws IOException {
     List<Op> ops = batch(batchId);
+    List<Op> reverted = new ArrayList<>();
     for (int i = ops.size() - 1; i >= 0; i--) {
       Op op = ops.get(i);
       Path src = Path.of(op.src());
@@ -69,6 +70,8 @@ public final class OperationLog {
       }
       Files.move(dest, src, java.nio.file.StandardCopyOption.ATOMIC_MOVE); // 回滚同样零拷贝
       append(new Op(batchId, System.currentTimeMillis(), "REVERT", op.dest(), op.src()));
+      reverted.add(op);
     }
+    return reverted;
   }
 }

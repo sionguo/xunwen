@@ -137,4 +137,32 @@ class ApprovalServiceTest {
     }
     assertTrue(CategoryTree.load(RepoPaths.categoriesYaml(root)).find("工作文档").isEmpty());
   }
+
+  @Test
+  void rollbackSuppressesResyncUntilReshuffleConfirms(@TempDir Path root) throws Exception {
+    new CategoryTree(List.of(new Category("工作文档", "", List.of())))
+        .save(RepoPaths.categoriesYaml(root));
+    Path f = root.resolve("报告.txt");
+    Files.writeString(f, "内容");
+    var records = new IngestTask(root, CFG, HIGH_LLM, EX).ingest(List.of(f));
+    assertEquals(1, records.size());
+    String batch = records.getFirst().batchId();
+    assertTrue(Files.exists(root.resolve("工作文档/报告.txt")));
+
+    var service = new ApprovalService(root, CFG, HIGH_LLM, EX);
+    assertEquals(1, service.rollbackBatch(batch));
+    assertTrue(Files.exists(root.resolve("报告.txt"))); // 文件还原到原位
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+      assertTrue(idx.findByPath("工作文档/报告.txt").isEmpty()); // 落点索引条目已删
+    }
+
+    // 回滚抑制：sync 不再把文件按旧置信度移回类别（否则回滚被撤销）
+    new IngestTask(root, CFG, HIGH_LLM, EX).sync();
+    assertTrue(Files.exists(root.resolve("报告.txt")));
+
+    // 重排即用户重新确认：清空抑制清单后 sync 重新归类
+    RollbackSuppress.clear(root);
+    new IngestTask(root, CFG, HIGH_LLM, EX).sync();
+    assertTrue(Files.exists(root.resolve("工作文档/报告.txt")));
+  }
 }

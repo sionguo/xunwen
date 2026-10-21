@@ -43,6 +43,7 @@ public final class ReshuffleTask {
       throw new IllegalStateException("先完成冷启动：缺少 " + treeYaml);
     }
     CategoryTree tree = CategoryTree.load(treeYaml);
+    RollbackSuppress.clear(repoRoot); // 重排 = 用户重新确认，撤销回滚抑制
     String batchId = "reshuffle-" + System.currentTimeMillis();
     FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
 
