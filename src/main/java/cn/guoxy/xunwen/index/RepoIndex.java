@@ -111,6 +111,29 @@ public final class RepoIndex implements AutoCloseable {
     return storedOf(search(new TermQuery(new Term(F_STATUS, status)), limit).scoreDocs);
   }
 
+  /** 全量存储文档（单 reader 内检索 + 读存储字段）。 */
+  public List<StoredDoc> all() throws IOException {
+    try (IndexReader reader = reader()) {
+      TopDocs all =
+          new IndexSearcher(reader)
+              .search(MatchAllDocsQuery.INSTANCE, Math.max(1, reader.numDocs()));
+      List<StoredDoc> out = new ArrayList<>();
+      for (ScoreDoc hit : all.scoreDocs) {
+        Document d = reader.storedFields().document(hit.doc);
+        out.add(
+            new StoredDoc(
+                d.get(F_PATH),
+                d.get(F_NAME),
+                d.get(F_CATEGORY),
+                d.get(F_STATUS),
+                d.get(F_CONTENT)));
+      }
+      return out;
+    } catch (IndexNotFoundException emptyIndex) {
+      return List.of(); // 全新索引尚无 segments 文件：空结果
+    }
+  }
+
   public ScoreDoc[] searchKeyword(String query, int k) throws IOException {
     var parser = new MultiFieldQueryParser(new String[] {F_NAME, F_CONTENT}, analyzer);
     try {

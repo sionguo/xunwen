@@ -81,6 +81,7 @@ class RepoIndexTest {
               new float[] {0, 1, 0, 0}));
       assertEquals(1, idx.byStatus("PENDING", 10).size());
       assertEquals("p.pdf", idx.byStatus("PENDING", 10).get(0).path());
+      assertEquals(2, idx.all().size());
     }
   }
 }
