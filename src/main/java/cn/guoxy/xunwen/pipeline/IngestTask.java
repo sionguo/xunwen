@@ -51,6 +51,11 @@ public final class IngestTask {
   }
 
   public int sync() throws IOException {
+    return sync(ReshuffleTask.Progress.noop());
+  }
+
+  /** 带进度回调的积压同步：每个入库文件回调一次（total 为全仓库文件数）。 */
+  public int sync(ReshuffleTask.Progress progress) throws IOException {
     if (!Files.exists(RepoPaths.categoriesYaml(repoRoot))) {
       return 0; // 未冷启动：无树可归类，UI 层负责提示先冷启动
     }
@@ -77,6 +82,7 @@ public final class IngestTask {
       }
       // 2. 文件系统有、索引无 → 入库（回滚抑制清单内的跳过）
       Set<String> suppressed = RollbackSuppress.load(repoRoot);
+      int total = Math.max(1, fs.size());
       for (Path p : walkFiles()) {
         String rel = FileProcessor.posix(repoRoot.relativize(p));
         if (suppressed.contains(rel)) {
@@ -85,6 +91,7 @@ public final class IngestTask {
         if (index.findByPath(rel).isEmpty()) {
           processor.process(p, tree, batchId, index);
           processed++;
+          progress.onProgress(processed, total, rel);
         }
       }
     }

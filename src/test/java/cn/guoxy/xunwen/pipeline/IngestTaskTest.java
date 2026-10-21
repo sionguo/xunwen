@@ -144,4 +144,19 @@ class IngestTaskTest {
     assertEquals(0, task.sync()); // 第二轮：已入库，不再重复处理
     assertEquals(1, llmCalls[0]); // 只调用过一次 LLM，无自重复循环
   }
+
+  @Test
+  void syncReportsProgress(@TempDir Path root) throws Exception {
+    prepareRepo(root);
+    Path a = root.resolve("甲.txt");
+    Files.writeString(a, "内容甲");
+    Path b = root.resolve("乙.txt");
+    Files.writeString(b, "内容乙");
+    List<String> seen = new java.util.ArrayList<>();
+    ReshuffleTask.Progress progress =
+        (done, total, file) -> seen.add(done + "/" + total + ":" + file);
+    new IngestTask(root, CFG, fakeLlm(), fakeExtractor()).sync(progress);
+    assertEquals(2, seen.size()); // 每个入库文件一次进度回调
+    assertTrue(seen.get(seen.size() - 1).startsWith("2/2:"));
+  }
 }

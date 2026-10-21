@@ -60,4 +60,40 @@ public final class Fx {
     Alert a = new Alert(Alert.AlertType.ERROR, msg + "\n" + String.valueOf(t));
     a.showAndWait();
   }
+
+  /** 非模态进度框：后台任务用 update 刷新，close 收尾。 */
+  public static ProgressBox progressBox(String title) {
+    var dialog = new javafx.scene.control.Dialog<Void>();
+    dialog.setTitle(title);
+    dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CANCEL);
+    ((javafx.scene.control.Button)
+            dialog.getDialogPane().lookupButton(javafx.scene.control.ButtonType.CANCEL))
+        .setDisable(true); // v1 任务不可中断，按钮仅占位
+    var bar = new javafx.scene.control.ProgressBar();
+    bar.setPrefWidth(360);
+    var label = new javafx.scene.control.Label("准备中…");
+    var box = new javafx.scene.layout.VBox(10, bar, label);
+    box.setPadding(new javafx.geometry.Insets(16));
+    dialog.getDialogPane().setContent(box);
+    dialog.show();
+    return new ProgressBox(bar, label, dialog);
+  }
+
+  /** 进度框句柄：update/close 可在任意线程调用（内部切 FX 线程）。 */
+  public record ProgressBox(
+      javafx.scene.control.ProgressBar bar,
+      javafx.scene.control.Label label,
+      javafx.scene.control.Dialog<Void> dialog) {
+    public void update(int done, int total, String current) {
+      javafx.application.Platform.runLater(
+          () -> {
+            bar.setProgress(total <= 0 ? -1 : (double) done / total);
+            label.setText(done + " / " + total + "　" + current);
+          });
+    }
+
+    public void close() {
+      javafx.application.Platform.runLater(dialog::close);
+    }
+  }
 }

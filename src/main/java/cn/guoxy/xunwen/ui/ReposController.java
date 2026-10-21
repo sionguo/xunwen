@@ -57,11 +57,20 @@ public class ReposController {
       Fx.alert("已打开仓库「" + selected.getFileName() + "」。该仓库还没有类别树，请先到「类别树」页点「生成类别树提案」完成冷启动。");
       return;
     }
+    Fx.ProgressBox progress = Fx.progressBox("正在同步仓库「" + selected.getFileName() + "」…");
     Fx.runEngine(
         state,
-        () -> new IngestTask(selected, state.config(), state.llm(), state.extractor()).sync(),
-        n -> Fx.alert("已打开仓库「" + selected.getFileName() + "」，同步处理 " + n + " 个文件"),
-        t -> Fx.error("同步失败", t));
+        () ->
+            new IngestTask(selected, state.config(), state.llm(), state.extractor())
+                .sync((done, total, file) -> progress.update(done, total, file)),
+        n -> {
+          progress.close();
+          Fx.alert("已打开仓库「" + selected.getFileName() + "」，同步处理 " + n + " 个文件");
+        },
+        t -> {
+          progress.close();
+          Fx.error("同步失败", t);
+        });
   }
 
   @FXML

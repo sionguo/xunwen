@@ -151,6 +151,7 @@ public class TreeController {
       Fx.alert("先打开仓库");
       return;
     }
+    progress.setVisible(true);
     progress.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
     AtomicBoolean cancelledFlag = new AtomicBoolean(false);
     ReshuffleTask.Progress listener =
@@ -179,7 +180,7 @@ public class TreeController {
           reload();
         },
         t -> {
-          progress.setProgress(0);
+          progress.setVisible(false);
           status.setText("");
           Fx.error("重排失败", t);
         });
