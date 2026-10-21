@@ -3,8 +3,11 @@ package cn.guoxy.xunwen.classify;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -12,6 +15,7 @@ public final class TreeProposer {
   public record Sample(String fileName, String contentPreview) {}
 
   private static final ObjectMapper JSON = new ObjectMapper();
+  private static final Logger LOG = LoggerFactory.getLogger(TreeProposer.class);
 
   private final LlmClient llm;
 
@@ -20,6 +24,8 @@ public final class TreeProposer {
   }
 
   public CategoryTree propose(List<Sample> samples) {
+    long startedAt = System.nanoTime();
+    LOG.info("开始调用 LLM 归纳类别树（样本 {} 个）…", samples.size());
     StringBuilder sb = new StringBuilder();
     for (Sample s : samples) {
       sb.append("文件：").append(s.fileName()).append('\n');
@@ -45,7 +51,12 @@ public final class TreeProposer {
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
         JsonNode node = JSON.readTree(llm.chat(List.of(LlmClient.Msg.user(prompt))));
-        return parse(node);
+        CategoryTree tree = parse(node);
+        LOG.info(
+            "类别树归纳完成：{} 个顶层类别，LLM 耗时 {} ms",
+            tree.roots().size(),
+            Duration.ofNanos(System.nanoTime() - startedAt).toMillis());
+        return tree;
       } catch (Exception e) {
         last = e;
       }

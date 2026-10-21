@@ -104,6 +104,8 @@ public class TreeController {
     Fx.runAsync(
         () -> {
           var samples = ColdStartSampler.sample(repo, state.extractor(), 20);
+          javafx.application.Platform.runLater(
+              () -> status.setText("采样完成（" + samples.size() + " 个），正在调用 LLM 归纳类别树…"));
           return new TreeProposer(state.llm()).propose(samples);
         },
         t -> {
