@@ -5,9 +5,12 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** FX 线程助手：虚拟线程池跑引擎 I/O，Platform.runLater 回调；弹窗工具。 */
 public final class Fx {
+  private static final Logger LOG = LoggerFactory.getLogger(Fx.class);
   private static final ExecutorService POOL = Executors.newVirtualThreadPerTaskExecutor();
 
   private Fx() {}
@@ -53,6 +56,7 @@ public final class Fx {
   }
 
   public static void error(String msg, Throwable t) {
+    LOG.error(msg, t); // 弹窗之外留档：完整堆栈在 ~/.xunwen/logs/xunwen.log
     Alert a = new Alert(Alert.AlertType.ERROR, msg + "\n" + String.valueOf(t));
     a.showAndWait();
   }

@@ -28,6 +28,9 @@ public final class IngestTask {
   }
 
   public List<MoveRecord> ingest(List<Path> newFiles) throws IOException {
+    if (!Files.exists(RepoPaths.categoriesYaml(repoRoot))) {
+      return List.of(); // 未冷启动：无树可归类，文件留在原地等冷启动后的 sync
+    }
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
     String batchId = "ingest-" + System.currentTimeMillis();
     Set<String> suppressed = RollbackSuppress.load(repoRoot);
@@ -48,6 +51,9 @@ public final class IngestTask {
   }
 
   public int sync() throws IOException {
+    if (!Files.exists(RepoPaths.categoriesYaml(repoRoot))) {
+      return 0; // 未冷启动：无树可归类，UI 层负责提示先冷启动
+    }
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
     String batchId = "sync-" + System.currentTimeMillis();
     // 文件系统侧指纹（POSIX 相对路径 → [mtime, size]）

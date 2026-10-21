@@ -1,6 +1,8 @@
 package cn.guoxy.xunwen.ui;
 
 import cn.guoxy.xunwen.pipeline.IngestTask;
+import cn.guoxy.xunwen.repo.RepoPaths;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
@@ -51,6 +53,10 @@ public class ReposController {
       return;
     }
     state.currentRepoProperty().set(selected);
+    if (!Files.exists(RepoPaths.categoriesYaml(selected))) {
+      Fx.alert("已打开仓库「" + selected.getFileName() + "」。该仓库还没有类别树，请先到「类别树」页点「生成类别树提案」完成冷启动。");
+      return;
+    }
     Fx.runEngine(
         state,
         () -> new IngestTask(selected, state.config(), state.llm(), state.extractor()).sync(),

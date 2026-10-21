@@ -110,6 +110,17 @@ class IngestTaskTest {
   }
 
   @Test
+  void syncAndIngestWithoutTreeAreNoOps(@TempDir Path root) throws Exception {
+    // 未冷启动的仓库（无 categories.yaml）：打开/watch 都不应抛异常，等冷启动后 sync 再处理
+    Path f = root.resolve("未分类.txt");
+    Files.writeString(f, "内容");
+    var task = new IngestTask(root, CFG, fakeLlm(), fakeExtractor());
+    assertEquals(0, task.sync());
+    assertTrue(task.ingest(List.of(f)).isEmpty());
+    assertTrue(Files.exists(f)); // 文件留在原地未被移动
+  }
+
+  @Test
   void unindexedFileInsidePendingDirIsIndexedInPlace(@TempDir Path root) throws Exception {
     prepareRepo(root);
     Path pending = Files.createDirectories(RepoPaths.pendingDir(root));

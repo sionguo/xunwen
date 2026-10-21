@@ -16,9 +16,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** 单文件处理：提取 → 分类 → 置信度分流移动 → 写日志 → 写索引（FR-1/2/3）。 */
 public final class FileProcessor {
+  private static final Logger LOG = LoggerFactory.getLogger(FileProcessor.class);
   private static final int EMBED_CHARS = 4000;
 
   private final Path repoRoot;
@@ -109,7 +112,7 @@ public final class FileProcessor {
       return actual;
     } catch (IOException | IllegalStateException e) {
       // 移动失败（Windows 占用等）或 LLM 传输失败：本批跳过，下轮再处理，不让整批任务崩
-      System.err.println("[xunwen] 跳过无法处理的文件: " + relPath + " (" + e + ")");
+      LOG.warn("跳过无法处理的文件: {}", relPath, e);
     }
     return null;
   }

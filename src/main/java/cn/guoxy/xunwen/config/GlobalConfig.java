@@ -12,6 +12,6 @@ public record GlobalConfig(
 
   public static GlobalConfig defaults() {
     return new GlobalConfig(
-        "http://localhost:11434/v1", "", "qwen3:8b", "bge-m3", 1024, 0.85, 0.5, 2);
+        "http://localhost:11434/v1", "", "qwen3.55:4b-mlx", "bge-m3", 1024, 0.85, 0.5, 2);
   }
 }
