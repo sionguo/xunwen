@@ -26,14 +26,16 @@ public final class IngestTask {
     this.processor = new FileProcessor(this.repoRoot, cfg, llm, extractor);
   }
 
-  public List<Path> ingest(List<Path> newFiles) throws IOException {
+  public List<MoveRecord> ingest(List<Path> newFiles) throws IOException {
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
     String batchId = "ingest-" + System.currentTimeMillis();
-    List<Path> done = new ArrayList<>();
+    List<MoveRecord> done = new ArrayList<>();
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (Path f : newFiles) {
-        processor.process(f, tree, batchId, index);
-        done.add(f);
+        Path dest = processor.process(f, tree, batchId, index);
+        if (dest != null) {
+          done.add(new MoveRecord(batchId, f, dest));
+        }
       }
     }
     return done;

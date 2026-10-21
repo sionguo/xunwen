@@ -60,4 +60,27 @@ class RepoIndexTest {
       assertEquals("1.pdf", idx.storedOf(hits).getFirst().path());
     }
   }
+
+  @Test
+  void byStatusFiltersDocuments(@TempDir Path dir) throws Exception {
+    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+      idx.upsert(
+          new Doc(
+              "p.pdf", "p.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {1, 0, 0, 0}));
+      idx.upsert(
+          new Doc(
+              "q.pdf",
+              "q.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              "INDEXED",
+              "工作文档",
+              "c",
+              new float[] {0, 1, 0, 0}));
+      assertEquals(1, idx.byStatus("PENDING", 10).size());
+      assertEquals("p.pdf", idx.byStatus("PENDING", 10).get(0).path());
+    }
+  }
 }

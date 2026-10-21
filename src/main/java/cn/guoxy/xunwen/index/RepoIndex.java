@@ -106,6 +106,11 @@ public final class RepoIndex implements AutoCloseable {
     }
   }
 
+  /** 按状态检索待审列表（PENDING/UNKNOWN），返回存储字段。 */
+  public List<StoredDoc> byStatus(String status, int limit) throws IOException {
+    return storedOf(search(new TermQuery(new Term(F_STATUS, status)), limit).scoreDocs);
+  }
+
   public ScoreDoc[] searchKeyword(String query, int k) throws IOException {
     var parser = new MultiFieldQueryParser(new String[] {F_NAME, F_CONTENT}, analyzer);
     try {

@@ -52,13 +52,14 @@ public final class FileProcessor {
     this.log = new OperationLog(RepoPaths.operationsJsonl(this.repoRoot));
   }
 
-  public void process(Path file, CategoryTree tree, String batchId, RepoIndex index) {
+  /** 返回实际落点（含 RENAMED 改名后路径）；已入库/重复跳过/失败返回 null。 */
+  public Path process(Path file, CategoryTree tree, String batchId, RepoIndex index) {
     String name = file.getFileName().toString();
     Path src = file.toAbsolutePath().normalize();
     String relPath = posix(repoRoot.relativize(src));
     try {
       if (index.findByPath(relPath).isPresent()) {
-        return; // 已入库（中断续跑）
+        return null; // 已入库（中断续跑）
       }
       ContentExtractor.Extracted ex = extractor.extract(file);
       Classifier.Outcome outcome = classifier.classify(name, ex.text(), ex.hasTextLayer(), tree);
@@ -76,7 +77,7 @@ public final class FileProcessor {
       } else {
         FileMover.MoveOutcome moved = mover.move(src, destDir);
         if (moved.result() == FileMover.MoveResult.DUPLICATE_SKIPPED) {
-          return; // 重复副本留在原处（FR-5），不入索引
+          return null; // 重复副本留在原处（FR-5），不入索引
         }
         actual = moved.dest();
         hash = moved.hash();
@@ -105,10 +106,12 @@ public final class FileProcessor {
               outcome.action() == Action.AUTO_MOVE ? outcome.categoryPath() : "",
               text,
               embedSafely(embedText)));
+      return actual;
     } catch (IOException | IllegalStateException e) {
       // 移动失败（Windows 占用等）或 LLM 传输失败：本批跳过，下轮再处理，不让整批任务崩
       System.err.println("[xunwen] 跳过无法处理的文件: " + relPath + " (" + e + ")");
     }
+    return null;
   }
 
   private float[] embedSafely(String text) {
