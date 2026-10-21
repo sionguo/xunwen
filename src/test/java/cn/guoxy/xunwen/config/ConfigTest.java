@@ -38,4 +38,28 @@ class ConfigTest {
     reg.remove(dir.resolve("repoA"));
     assertEquals(List.of(dir.resolve("repoB")), reg.list());
   }
+
+  @Test
+  void embedBaseUrlFallsBackWhenAbsentAndRoundTripsSeparately(@TempDir Path dir)
+      throws IOException {
+    var store = new GlobalConfigStore(dir.resolve("config.json"));
+    // 8 参旧构造：向量服务未单独配置 → 与对话同址
+    var legacy = new GlobalConfig("http://chat.local/v1", "sk", "m", "e", 4, 0.85, 0.5, 2);
+    assertEquals("http://chat.local/v1", legacy.embedBaseUrl());
+    // 分离配置的往返
+    var custom =
+        new GlobalConfig(
+            "http://chat.local/v1", "http://embed.local/v1", "sk", "m", "e", 4, 0.85, 0.5, 2);
+    store.save(custom);
+    assertEquals("http://embed.local/v1", store.load().embedBaseUrl());
+    // 旧版 JSON（无 embedBaseUrl 键）加载后回落到 baseUrl
+    java.nio.file.Files.writeString(
+        dir.resolve("legacy.json"),
+        """
+        {"baseUrl":"http://old.local/v1","apiKey":"","chatModel":"m","embedModel":"e",
+         "vectorDim":4,"autoThreshold":0.85,"pendingThreshold":0.5,"concurrency":2}
+        """);
+    var loaded = new GlobalConfigStore(dir.resolve("legacy.json")).load();
+    assertEquals("http://old.local/v1", loaded.embedBaseUrl());
+  }
 }

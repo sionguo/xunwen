@@ -60,7 +60,8 @@ public final class AppState {
 
   public OpenAiCompatClient llm() {
     GlobalConfig c = config.get();
-    return new OpenAiCompatClient(c.baseUrl(), c.apiKey(), c.chatModel(), c.embedModel());
+    return new OpenAiCompatClient(
+        c.baseUrl(), c.embedBaseUrl(), c.apiKey(), c.chatModel(), c.embedModel());
   }
 
   public ContentExtractor extractor() {

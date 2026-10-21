@@ -9,6 +9,7 @@ public class SettingsController {
   private final AppState state;
 
   @FXML private TextField baseUrl;
+  @FXML private TextField embedBaseUrl;
   @FXML private TextField apiKey;
   @FXML private TextField chatModel;
   @FXML private TextField embedModel;
@@ -25,6 +26,7 @@ public class SettingsController {
   private void initialize() {
     GlobalConfig c = state.config();
     baseUrl.setText(c.baseUrl());
+    embedBaseUrl.setText(c.embedBaseUrl());
     apiKey.setText(c.apiKey());
     chatModel.setText(c.chatModel());
     embedModel.setText(c.embedModel());
@@ -40,6 +42,7 @@ public class SettingsController {
       state.saveConfig(
           new GlobalConfig(
               baseUrl.getText().strip(),
+              embedBaseUrl.getText().strip(),
               apiKey.getText().strip(),
               chatModel.getText().strip(),
               embedModel.getText().strip(),

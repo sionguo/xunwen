@@ -18,20 +18,22 @@
     </columnConstraints>
     <Label text="服务地址" GridPane.rowIndex="0"/>
     <TextField fx:id="baseUrl" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
-    <Label text="API Key" GridPane.rowIndex="1"/>
-    <TextField fx:id="apiKey" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
-    <Label text="对话模型" GridPane.rowIndex="2"/>
-    <TextField fx:id="chatModel" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
-    <Label text="Embedding 模型" GridPane.rowIndex="3"/>
-    <TextField fx:id="embedModel" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
-    <Label text="向量维度" GridPane.rowIndex="4"/>
-    <TextField fx:id="vectorDim" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
-    <Label text="自动归档阈值" GridPane.rowIndex="5"/>
-    <TextField fx:id="autoThreshold" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
-    <Label text="待审阈值" GridPane.rowIndex="6"/>
-    <TextField fx:id="pendingThreshold" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
-    <Label text="并发数" GridPane.rowIndex="7"/>
-    <TextField fx:id="concurrency" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+    <Label text="向量服务地址" GridPane.rowIndex="1" tooltip="留空则与上方服务地址相同"/>
+    <TextField fx:id="embedBaseUrl" GridPane.rowIndex="1" GridPane.columnIndex="1" promptText="留空则与上方服务地址相同"/>
+    <Label text="API Key" GridPane.rowIndex="2"/>
+    <TextField fx:id="apiKey" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+    <Label text="对话模型" GridPane.rowIndex="3"/>
+    <TextField fx:id="chatModel" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+    <Label text="Embedding 模型" GridPane.rowIndex="4"/>
+    <TextField fx:id="embedModel" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+    <Label text="向量维度" GridPane.rowIndex="5"/>
+    <TextField fx:id="vectorDim" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+    <Label text="自动归档阈值" GridPane.rowIndex="6"/>
+    <TextField fx:id="autoThreshold" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+    <Label text="待审阈值" GridPane.rowIndex="7"/>
+    <TextField fx:id="pendingThreshold" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+    <Label text="并发数" GridPane.rowIndex="8"/>
+    <TextField fx:id="concurrency" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
   </GridPane>
   <HBox spacing="10">
     <Button text="保存" onAction="#onSave"/>
