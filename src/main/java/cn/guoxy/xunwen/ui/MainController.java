@@ -51,7 +51,9 @@ public class MainController {
   private Node load(String fxml) {
     try {
       FXMLLoader loader = new FXMLLoader(getClass().getResource(fxml));
-      loader.setControllerFactory(type -> newController(fxml));
+      // 视图 FXML 不声明 fx:controller，必须显式 setController；
+      // setControllerFactory 只对声明了 fx:controller 的 FXML 生效
+      loader.setController(newController(fxml));
       return loader.load();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
