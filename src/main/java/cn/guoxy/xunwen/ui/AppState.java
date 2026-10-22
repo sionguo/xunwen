@@ -4,7 +4,7 @@ import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.config.GlobalConfigStore;
 import cn.guoxy.xunwen.config.RepoRegistry;
 import cn.guoxy.xunwen.extract.ContentExtractor;
-import cn.guoxy.xunwen.extract.TikaExtractor;
+import cn.guoxy.xunwen.extract.OcrFallbackExtractor;
 import cn.guoxy.xunwen.llm.OpenAiCompatClient;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -70,7 +70,7 @@ public final class AppState {
   }
 
   public ContentExtractor extractor() {
-    return new TikaExtractor();
+    return new OcrFallbackExtractor();
   }
 
   public ObjectProperty<GlobalConfig> configProperty() {
