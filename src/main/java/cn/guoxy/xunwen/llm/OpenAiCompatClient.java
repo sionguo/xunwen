@@ -53,6 +53,8 @@ public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
       ObjectNode body = JSON.createObjectNode();
       body.put("model", chatModel);
       body.put("temperature", 0.1);
+      // 分类只需直接输出：qwen3.5 默认思考会耗尽 token 且 content 为空（Ollama/MiMo 均接受此参数）
+      body.put("reasoning_effort", "none");
       body.putObject("response_format").put("type", "json_object");
       ArrayNode msgs = body.putArray("messages");
       for (Msg m : messages) {
@@ -115,6 +117,7 @@ public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
           resp.statusCode(),
           payload.length(),
           ms);
+      LOG.debug("LLM {} 失败请求体：{}", kind, payload);
       throw new IOException("HTTP " + resp.statusCode() + ": " + resp.body());
     }
     LOG.info(
@@ -124,6 +127,8 @@ public final class OpenAiCompatClient implements LlmClient, EmbeddingClient {
         payload.length(),
         resp.body().length(),
         ms);
+    LOG.debug("LLM {} 请求体：{}", kind, payload);
+    LOG.debug("LLM {} 响应体：{}", kind, resp.body());
     return JSON.readTree(resp.body());
   }
 }

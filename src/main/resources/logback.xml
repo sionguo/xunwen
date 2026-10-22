@@ -17,6 +17,9 @@
       <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger{36} - %msg%n%ex</pattern>
     </encoder>
   </appender>
+  <!-- 模型调用全文（请求/响应体）调试开关：需要排查 LLM 交互时改为 DEBUG -->
+  <logger name="cn.guoxy.xunwen.llm" level="DEBUG"/>
+
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
     <appender-ref ref="FILE"/>
