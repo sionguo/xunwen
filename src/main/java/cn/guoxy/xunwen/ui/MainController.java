@@ -4,13 +4,16 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.EnumMap;
 import java.util.Map;
+import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
-import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.StackPane;
 
-/** 主导航:左侧五个页签按钮,右侧 StackPane 按需懒加载子视图并缓存。 */
+/** 主导航:左侧五个页签按钮(带选中态),右侧 StackPane 按需懒加载子视图并缓存;顶栏显示当前仓库。 */
 public class MainController {
   private enum Page {
     REPOS,
@@ -23,11 +26,13 @@ public class MainController {
   private final AppState state;
   private final Map<Page, Node> cache = new EnumMap<>(Page.class);
 
-  @FXML private Button reposBtn;
-  @FXML private Button treeBtn;
-  @FXML private Button pendingBtn;
-  @FXML private Button searchBtn;
-  @FXML private Button settingsBtn;
+  @FXML private ToggleButton reposBtn;
+  @FXML private ToggleButton treeBtn;
+  @FXML private ToggleButton pendingBtn;
+  @FXML private ToggleButton searchBtn;
+  @FXML private ToggleButton settingsBtn;
+  @FXML private ToggleGroup navGroup;
+  @FXML private Label currentRepoLabel;
   @FXML private StackPane content;
 
   public MainController(AppState state) {
@@ -36,12 +41,34 @@ public class MainController {
 
   @FXML
   private void initialize() {
-    reposBtn.setOnAction(e -> show(Page.REPOS, "repos-view.fxml"));
-    treeBtn.setOnAction(e -> show(Page.TREE, "tree-view.fxml"));
-    pendingBtn.setOnAction(e -> show(Page.PENDING, "pending-view.fxml"));
-    searchBtn.setOnAction(e -> show(Page.SEARCH, "search-view.fxml"));
-    settingsBtn.setOnAction(e -> show(Page.SETTINGS, "settings-view.fxml"));
+    wireNav(reposBtn, Page.REPOS, "repos-view.fxml");
+    wireNav(treeBtn, Page.TREE, "tree-view.fxml");
+    wireNav(pendingBtn, Page.PENDING, "pending-view.fxml");
+    wireNav(searchBtn, Page.SEARCH, "search-view.fxml");
+    wireNav(settingsBtn, Page.SETTINGS, "settings-view.fxml");
+    currentRepoLabel
+        .textProperty()
+        .bind(
+            Bindings.createStringBinding(
+                () -> {
+                  var repo = state.currentRepo();
+                  return repo == null ? "" : "· " + repo.getFileName();
+                },
+                state.currentRepoProperty()));
+    currentRepoLabel.visibleProperty().bind(currentRepoLabel.textProperty().isNotEmpty());
+    reposBtn.setSelected(true); // 默认进仓库页
     show(Page.REPOS, "repos-view.fxml");
+  }
+
+  private void wireNav(ToggleButton btn, Page page, String fxml) {
+    btn.setOnAction(
+        e -> {
+          if (!btn.isSelected()) {
+            btn.setSelected(true); // 再点已选中页签不允许取消选中
+            return;
+          }
+          show(page, fxml);
+        });
   }
 
   private void show(Page page, String fxml) {

@@ -17,6 +17,7 @@ import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TableCell;
@@ -94,9 +95,12 @@ public class PendingController {
 
   private void reload() {
     Path repo = state.currentRepo();
+    table.setPlaceholder(placeholder("暂无待审文件"));
+    proposals.setPlaceholder(placeholder("暂无类别提议"));
     if (repo == null) {
       table.getItems().clear();
       proposals.getItems().clear();
+      table.setPlaceholder(placeholder("先在「仓库」页打开仓库"));
       return;
     }
     Fx.runEngine(
@@ -133,6 +137,12 @@ public class PendingController {
           proposals.getItems().setAll(r.proposals());
         },
         t -> Fx.error("加载待审队列失败", t));
+  }
+
+  private static Label placeholder(String text) {
+    var l = new Label(text);
+    l.getStyleClass().add("placeholder-label");
+    return l;
   }
 
   private Row newRow(StoredDoc d) {

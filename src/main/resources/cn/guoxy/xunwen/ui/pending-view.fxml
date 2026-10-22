@@ -1,33 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
-<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
-<VBox spacing="10" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
-  <padding><Insets top="16" right="16" bottom="16" left="16"/></padding>
+<VBox styleClass="page" spacing="12" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+  <Label text="待审" styleClass="page-title"/>
   <HBox spacing="10">
-    <Button text="按所选全部归位" onAction="#onApproveAll"/>
+    <Button text="按所选全部归位" onAction="#onApproveAll" styleClass="accent"/>
     <Button text="批准为新类别" onAction="#onApproveProposal"/>
     <Button text="忽略提议" onAction="#onIgnoreProposal"/>
   </HBox>
-  <Label text="待审文件（低置信 / 未知）"/>
-  <TableView fx:id="table" prefHeight="300">
-    <columns>
-      <TableColumn fx:id="nameCol" text="文件名" prefWidth="280"/>
-      <TableColumn fx:id="statusCol" text="状态" prefWidth="90"/>
-      <TableColumn fx:id="categoryCol" text="选择类别" prefWidth="230"/>
-      <TableColumn fx:id="actionCol" text="操作" prefWidth="100"/>
-    </columns>
-  </TableView>
-  <Separator/>
-  <HBox spacing="10">
-    <Label text="提议的新类别"/>
-    <ListView fx:id="proposals" prefHeight="160" prefWidth="560"/>
-  </HBox>
+  <SplitPane orientation="VERTICAL" VBox.vgrow="ALWAYS">
+    <items>
+      <VBox spacing="8">
+        <Label text="待审文件（低置信 / 未知）" styleClass="page-hint"/>
+        <TableView fx:id="table" VBox.vgrow="ALWAYS">
+          <columns>
+            <TableColumn fx:id="nameCol" text="文件名" prefWidth="280"/>
+            <TableColumn fx:id="statusCol" text="状态" prefWidth="90"/>
+            <TableColumn fx:id="categoryCol" text="选择类别" prefWidth="230"/>
+            <TableColumn fx:id="actionCol" text="操作" prefWidth="100"/>
+          </columns>
+        </TableView>
+      </VBox>
+      <VBox spacing="8">
+        <Label text="提议的新类别" styleClass="page-hint"/>
+        <ListView fx:id="proposals" VBox.vgrow="ALWAYS"/>
+      </VBox>
+    </items>
+  </SplitPane>
 </VBox>

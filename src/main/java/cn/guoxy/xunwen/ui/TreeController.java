@@ -30,6 +30,7 @@ public class TreeController {
   private AtomicBoolean activeCancelFlag;
 
   @FXML private TreeView<String> tree;
+  @FXML private Label treeHint;
   @FXML private ProgressBar progress;
   @FXML private Label status;
 
@@ -44,13 +45,25 @@ public class TreeController {
     tree.setContextMenu(buildMenu());
   }
 
+  private void showHint(String text) {
+    treeHint.setText(text);
+    treeHint.setVisible(text != null);
+  }
+
   private void reload() {
     proposal = null;
     Path repo = state.currentRepo();
-    if (repo == null || !Files.exists(RepoPaths.categoriesYaml(repo))) {
+    if (repo == null) {
       tree.setRoot(null);
+      showHint("先在「仓库」页添加并打开仓库");
       return;
     }
+    if (!Files.exists(RepoPaths.categoriesYaml(repo))) {
+      tree.setRoot(null);
+      showHint("该仓库还没有类别树，点上方「生成类别树提案」完成冷启动");
+      return;
+    }
+    showHint(null);
     Fx.runAsync(
         () -> CategoryTree.load(RepoPaths.categoriesYaml(repo)),
         t -> tree.setRoot(buildRoot(repo.getFileName().toString(), t)),

@@ -5,9 +5,13 @@ import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 
 /** 仓库管理页:添加/移除/打开仓库,打开时后台 sync 修正积压（FR-12）。 */
@@ -23,12 +27,48 @@ public class ReposController {
   @FXML
   private void initialize() {
     repoList.setItems(state.reposProperty());
+    var repoPlaceholder = new Label("还没有仓库，点「添加仓库」选择文件夹开始");
+    repoPlaceholder.getStyleClass().add("placeholder-label");
+    repoList.setPlaceholder(repoPlaceholder);
+    repoList.setCellFactory(
+        lv ->
+            new ListCell<>() {
+              @Override
+              protected void updateItem(Path item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                  setText(null);
+                  setGraphic(null);
+                  return;
+                }
+                setText(null);
+                setGraphic(buildCell(item));
+              }
+            });
+    // 当前仓库变化时刷新列表以更新「当前打开」标记
+    state.currentRepoProperty().addListener((obs, ov, nv) -> repoList.refresh());
     repoList.setOnMouseClicked(
         e -> {
           if (e.getClickCount() == 2) {
             onOpen();
           }
         });
+  }
+
+  private Node buildCell(Path repo) {
+    boolean current = repo.equals(state.currentRepo());
+    var box = new VBox(2);
+    var name = new Label(repo.getFileName().toString());
+    name.getStyleClass().add("repo-name");
+    var path = new Label(repo.toString());
+    path.getStyleClass().add("repo-path");
+    box.getChildren().addAll(name, path);
+    if (current) {
+      var badge = new Label("● 当前打开");
+      badge.getStyleClass().add("repo-badge");
+      box.getChildren().add(badge);
+    }
+    return box;
   }
 
   @FXML

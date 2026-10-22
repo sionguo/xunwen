@@ -1,0 +1,175 @@
+/* 全局样式:基于 AtlantaFX Primer 主题变量,明暗主题自动适配。 */
+
+/* ── 顶部栏 ─────────────────────────────── */
+.top-bar {
+  -fx-padding: 12 20 12 20;
+  -fx-spacing: 10;
+  -fx-border-width: 0 0 1 0;
+  -fx-border-color: -color-border-default;
+  -fx-background-color: -color-bg-default;
+}
+
+.app-title {
+  -fx-font-size: 18px;
+  -fx-font-weight: bold;
+}
+
+.app-repo {
+  -fx-text-fill: -color-fg-muted;
+  -fx-font-size: 12px;
+}
+
+/* ── 左侧导航 ───────────────────────────── */
+.nav-sidebar {
+  -fx-padding: 12 10 12 10;
+  -fx-spacing: 4;
+  -fx-border-width: 0 1 0 0;
+  -fx-border-color: -color-border-default;
+  -fx-background-color: -color-bg-inset;
+  -fx-min-width: 156;
+  -fx-pref-width: 156;
+}
+
+.nav-button {
+  -fx-alignment: center-left;
+  -fx-graphic-text-gap: 10;
+  -fx-background-radius: 6;
+  -fx-max-width: Infinity;
+  -fx-padding: 9 14 9 14;
+  -fx-background-color: transparent;
+  -fx-border-width: 0;
+  -fx-color: transparent;
+}
+
+.nav-button .ikonli-font-icon {
+  -fx-icon-color: -color-fg-muted;
+}
+
+.nav-button:hover {
+  -fx-background-color: -color-bg-muted;
+}
+
+.nav-button:selected,
+.nav-button:selected:hover {
+  -fx-background-color: -color-accent-emphasis;
+}
+
+.nav-button:selected .ikonli-font-icon {
+  -fx-icon-color: -color-fg-on-emphasis;
+}
+
+.nav-button:selected .label {
+  -fx-text-fill: -color-fg-on-emphasis;
+}
+
+/* ── 页面通用 ───────────────────────────── */
+.page {
+  -fx-padding: 18 22 18 22;
+  -fx-spacing: 12;
+  -fx-background-color: -color-bg-default;
+}
+
+.page-title {
+  -fx-font-size: 16px;
+  -fx-font-weight: bold;
+}
+
+.page-hint {
+  -fx-text-fill: -color-fg-muted;
+  -fx-font-size: 12px;
+}
+
+/* 空态占位提示 */
+.placeholder-label {
+  -fx-text-fill: -color-fg-subtle;
+  -fx-font-size: 13px;
+  -fx-alignment: center;
+}
+
+/* 列表行呼吸感 */
+.list-cell {
+  -fx-padding: 7 10 7 10;
+}
+
+/* 表单 */
+.form .label {
+  -fx-alignment: center-right;
+  -fx-text-fill: -color-fg-muted;
+}
+
+/* 卡片容器 */
+.card {
+  -fx-background-color: -color-bg-overlay;
+  -fx-border-color: -color-border-default;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-padding: 18 20 18 20;
+}
+
+/* ── 分组小节标题 ───────────────────────── */
+.section-title {
+  -fx-font-size: 12px;
+  -fx-font-weight: bold;
+  -fx-text-fill: -color-fg-subtle;
+}
+
+/* ── 底部状态栏 ─────────────────────────── */
+.status-bar {
+  -fx-padding: 8 20 8 20;
+  -fx-border-width: 1 0 0 0;
+  -fx-border-color: -color-border-default;
+  -fx-background-color: -color-bg-inset;
+}
+
+/* ── SplitPane 分隔条可见性 ─────────────── */
+.split-pane-divider {
+  -fx-padding: 0 2 0 2;
+  -fx-background-color: -color-border-default;
+}
+
+/* ── 搜索页 ─────────────────────────────── */
+.search-bar {
+  -fx-spacing: 10;
+  -fx-padding: 14 20 14 20;
+  -fx-border-width: 0 0 1 0;
+  -fx-border-color: -color-border-default;
+}
+
+.hit-title {
+  -fx-fill: -color-fg-default;
+  -fx-font-weight: bold;
+  -fx-font-size: 13px;
+}
+
+.hit-meta {
+  -fx-fill: -color-fg-muted;
+  -fx-font-size: 12px;
+}
+
+.hit-emphasized {
+  -fx-fill: -color-accent-fg;
+  -fx-font-weight: bold;
+  -fx-font-size: 12px;
+}
+
+.hit-body {
+  -fx-fill: -color-fg-default;
+  -fx-font-size: 12px;
+}
+
+/* ── 仓库列表 ───────────────────────────── */
+.repo-name {
+  -fx-font-weight: bold;
+  -fx-font-size: 13px;
+}
+
+.repo-path {
+  -fx-text-fill: -color-fg-muted;
+  -fx-font-size: 11px;
+}
+
+.repo-badge {
+  -fx-text-fill: -color-success-fg;
+  -fx-font-size: 11px;
+  -fx-font-weight: bold;
+}

@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
   <top>
-    <HBox spacing="10">
-      <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
-      <TextField fx:id="query" prefWidth="420" promptText="输入关键词搜索" onAction="#onSearch"/>
-      <ComboBox fx:id="scope" prefWidth="120"/>
-      <Button text="搜索" onAction="#onSearch"/>
+    <HBox styleClass="search-bar" spacing="10" alignment="CENTER_LEFT">
+      <TextField fx:id="query" HBox.hgrow="ALWAYS" maxWidth="Infinity" promptText="输入关键词搜索" onAction="#onSearch"/>
+      <ComboBox fx:id="scope" prefWidth="130"/>
+      <Button text="搜索" onAction="#onSearch" styleClass="accent"/>
     </HBox>
   </top>
   <center>
-    <ListView fx:id="results"/>
+    <VBox styleClass="page">
+      <ListView fx:id="results" VBox.vgrow="ALWAYS"/>
+    </VBox>
   </center>
 </BorderPane>

@@ -13,12 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 
@@ -40,6 +38,9 @@ public class SearchController {
   private void initialize() {
     scope.getItems().setAll("当前仓库", "全部仓库");
     scope.getSelectionModel().selectFirst();
+    var searchPlaceholder = new Label("输入关键词，回车或点「搜索」开始");
+    searchPlaceholder.getStyleClass().add("placeholder-label");
+    results.setPlaceholder(searchPlaceholder);
     results.setCellFactory(
         lv ->
             new ListCell<>() {
@@ -66,18 +67,14 @@ public class SearchController {
   private TextFlow buildCell(HybridSearcher.Hit hit) {
     TextFlow flow = new TextFlow();
     Text title = new Text(hit.name());
-    title.setFont(Font.font(null, FontWeight.BOLD, 13));
+    title.getStyleClass().add("hit-title");
     flow.getChildren().add(title);
-    flow.getChildren().add(new Text("   " + hit.categoryPath() + " · " + hit.repoName() + "\n"));
+    Text meta = new Text("   " + hit.categoryPath() + " · " + hit.repoName() + "\n");
+    meta.getStyleClass().add("hit-meta");
+    flow.getChildren().add(meta);
     for (Highlighter.Segment seg : Highlighter.parse(hit.highlight())) {
       Text t = new Text(seg.text());
-      if (seg.emphasized()) {
-        t.setFont(Font.font(null, FontWeight.BOLD, 12));
-        t.setFill(Color.DARKRED);
-      } else {
-        t.setFont(Font.font(12));
-        t.setFill(Color.DIMGRAY);
-      }
+      t.getStyleClass().add(seg.emphasized() ? "hit-emphasized" : "hit-body");
       flow.getChildren().add(t);
     }
     return flow;
