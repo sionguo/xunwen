@@ -8,8 +8,10 @@ import cn.guoxy.xunwen.extract.TikaExtractor;
 import cn.guoxy.xunwen.llm.OpenAiCompatClient;
 import java.io.IOException;
 import java.nio.file.Path;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ListProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleListProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
@@ -24,6 +26,9 @@ public final class AppState {
   private final ListProperty<Path> repos =
       new SimpleListProperty<>(FXCollections.observableArrayList());
   private final ObjectProperty<Path> currentRepo = new SimpleObjectProperty<>();
+
+  /** 后台任务(watch 归置等)落库后的数据变更信号,视图监听它刷新;每次翻转取反。 */
+  private final BooleanProperty dataChanged = new SimpleBooleanProperty();
 
   public AppState(Path configFile, Path reposFile) {
     this.configStore = new GlobalConfigStore(configFile);
@@ -86,5 +91,13 @@ public final class AppState {
 
   public Path currentRepo() {
     return currentRepo.get();
+  }
+
+  public BooleanProperty dataChangedProperty() {
+    return dataChanged;
+  }
+
+  public void markDataChanged() {
+    dataChanged.set(!dataChanged.get());
   }
 }

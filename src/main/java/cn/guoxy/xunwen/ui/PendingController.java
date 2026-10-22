@@ -12,6 +12,7 @@ import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -46,20 +47,21 @@ public class PendingController {
   private void initialize() {
     nameCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().doc().name()));
     statusCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().doc().status()));
+    categoryCol.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().categoryBox()));
     categoryCol.setCellFactory(
         col ->
             new TableCell<>() {
               @Override
               protected void updateItem(Object item, boolean empty) {
                 super.updateItem(item, empty);
-                var row = getTableRow() == null ? null : (Row) getTableRow().itemProperty().get();
-                if (empty || row == null) {
+                if (empty || !(item instanceof ComboBox<?> box)) {
                   setGraphic(null);
                   return;
                 }
-                setGraphic(row.categoryBox());
+                setGraphic(box);
               }
             });
+    actionCol.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue()));
     actionCol.setCellFactory(
         col ->
             new TableCell<>() {
@@ -68,8 +70,7 @@ public class PendingController {
               @Override
               protected void updateItem(Object item, boolean empty) {
                 super.updateItem(item, empty);
-                var row = getTableRow() == null ? null : (Row) getTableRow().itemProperty().get();
-                if (empty || row == null) {
+                if (empty || !(item instanceof Row row)) {
                   setGraphic(null);
                   return;
                 }
@@ -90,10 +91,11 @@ public class PendingController {
               }
             });
     state.currentRepoProperty().addListener((obs, o, r) -> reload());
+    state.dataChangedProperty().addListener((obs, o, v) -> reload());
     reload();
   }
 
-  private void reload() {
+  void reload() {
     Path repo = state.currentRepo();
     table.setPlaceholder(placeholder("暂无待审文件"));
     proposals.setPlaceholder(placeholder("暂无类别提议"));

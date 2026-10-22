@@ -55,6 +55,7 @@ public final class WatchServiceBinder implements AutoCloseable {
               watcher.ignorePrefix(r.to()); // 防回环：自己移动产生的 CREATE 不再处理
             }
             // 不弹窗打扰：结果去类别树/待审页查看
+            state.markDataChanged();
           },
           t -> Fx.error("新文件处理失败", t));
     } catch (Exception e) {
