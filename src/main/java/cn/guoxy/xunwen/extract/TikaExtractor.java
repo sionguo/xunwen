@@ -46,7 +46,8 @@ public final class TikaExtractor implements ContentExtractor {
             file);
         return new Extracted("", false);
       }
-      String text = result.getContent().strip();
+      // 解析成功但无文本产出(如扫描件 PDF):getContent() 为 null,按无文本层走人工审,非异常
+      String text = result.getContent() == null ? "" : result.getContent().strip();
       if (text.length() > maxChars) {
         text = text.substring(0, maxChars);
       }
