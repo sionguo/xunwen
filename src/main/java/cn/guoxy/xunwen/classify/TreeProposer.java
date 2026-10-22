@@ -37,21 +37,21 @@ public final class TreeProposer {
     }
     String prompt =
         """
-        根据以下文件样本，归纳出一套中文资料分类体系（恰好两级）。
-        要求：顶层不超过6个类别；每个类别下不超过6个子类；必须包含「其他」作为兜底顶层类别；
-        名称2到6个汉字；每个类别配一句description。
+        根据以下文件样本，归纳出一套中文资料分类体系（一级扁平类别，不要子类别）。
+        要求：3到10个一级类别；必须包含「其他」作为兜底类别；
+        名称2到6个汉字；禁止「文档」「资料」这类泛化词；每个类别配一句description。
 
         文件样本：
         %s
         严格输出 JSON：
-        {"categories":[{"name":"...","description":"...","children":[{"name":"...","description":"..."}]}]}
+        {"categories":[{"name":"...","description":"..."}]}
         """
             .formatted(sb);
     Exception last = null;
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
         JsonNode node = JSON.readTree(llm.chat(List.of(LlmClient.Msg.user(prompt))));
-        CategoryTree tree = parse(node);
+        CategoryTree tree = ensureFallback(parse(node));
         LOG.info(
             "类别树归纳完成：{} 个顶层类别，LLM 耗时 {} ms",
             tree.roots().size(),
@@ -75,6 +75,16 @@ public final class TreeProposer {
       roots.add(
           new Category(c.path("name").asString(), c.path("description").asString(), children));
     }
+    return new CategoryTree(roots);
+  }
+
+  /** 兜底类别「其他」是系统语义（对应待分类目录），不依赖模型自觉：缺失时补上。 */
+  private static CategoryTree ensureFallback(CategoryTree tree) {
+    if (tree.find("其他").isPresent()) {
+      return tree;
+    }
+    List<Category> roots = new ArrayList<>(tree.roots());
+    roots.add(new Category("其他", "未能归入以上类别的兜底分类", List.of()));
     return new CategoryTree(roots);
   }
 }
