@@ -5,6 +5,7 @@ import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -30,6 +31,20 @@ public final class Classifier {
 
   public Outcome classify(
       String fileName, String contentPreview, boolean hasTextLayer, CategoryTree tree) {
+    return classify(fileName, contentPreview, hasTextLayer, tree, null, null);
+  }
+
+  /**
+   * 带向量一致性校验的分类：LLM 给出类别与置信度后，若向量路的最相似类别与 LLM 结论不一致， 置信度减半压进待审区（两路独立证据一致才自动移动）。vectors 或 fileVec 为
+   * null 时旁路。
+   */
+  public Outcome classify(
+      String fileName,
+      String contentPreview,
+      boolean hasTextLayer,
+      CategoryTree tree,
+      CategoryVectors vectors,
+      float[] fileVec) {
     String preview =
         contentPreview.length() > PREVIEW_CHARS
             ? contentPreview.substring(0, PREVIEW_CHARS)
@@ -40,7 +55,7 @@ public final class Classifier {
         JsonNode node =
             JSON.readTree(
                 llm.chat(List.of(LlmClient.Msg.system(SYSTEM_RULES), LlmClient.Msg.user(prompt))));
-        return toOutcome(node, hasTextLayer, tree);
+        return toOutcome(node, hasTextLayer, tree, vectors, fileVec);
       } catch (JacksonException parseFailure) {
         // 两次均解析失败则走循环外兜底；传输异常（LLM 不可达）不在此捕获，避免误判 UNKNOWN
       }
@@ -48,7 +63,12 @@ public final class Classifier {
     return new Outcome(Action.UNKNOWN, "", 0.0, "", "");
   }
 
-  private Outcome toOutcome(JsonNode node, boolean hasTextLayer, CategoryTree tree) {
+  private Outcome toOutcome(
+      JsonNode node,
+      boolean hasTextLayer,
+      CategoryTree tree,
+      CategoryVectors vectors,
+      float[] fileVec) {
     double self = node.path("self").asDouble(0.0);
     List<double[]> scored = new ArrayList<>(); // [score]
     JsonNode cands = node.path("candidates");
@@ -56,12 +76,23 @@ public final class Classifier {
       scored.add(new double[] {c.path("score").asDouble(0.0)});
     }
     double margin = scored.size() >= 2 ? clamp(scored.get(0)[0] - scored.get(1)[0]) : 1.0;
-    double confidence = self * (0.5 + 0.5 * margin);
+    // self 主导，候选差距（margin）只做微调：mimo 等模型候选分普遍偏高且接近，
+    // 重罚 margin 会把高把握结果压进待审区（confidence = self × (0.9 + 0.1 × margin)）
+    double confidence = self * (0.9 + 0.1 * margin);
     if (!hasTextLayer) {
       confidence = Math.min(confidence, cfg.pendingThreshold());
     }
     String category = node.path("category").asString("").strip();
     boolean inTree = !category.isEmpty() && tree.find(category).isPresent();
+    // 向量一致性钳制：向量路 top1 与 LLM 类别不一致 → 置信度减半压回待审区。
+    // 仅校验树内类别；向量路不可用（empty/null）时旁路，不误伤。
+    if (inTree) {
+      var top =
+          vectors == null ? Optional.<CategoryVectors.Scored>empty() : vectors.topMatch(fileVec);
+      if (top.isPresent() && !top.get().categoryPath().equals(category)) {
+        confidence *= 0.5;
+      }
+    }
     Action action =
         inTree && confidence >= cfg.autoThreshold()
             ? Action.AUTO_MOVE

@@ -1,6 +1,7 @@
 package cn.guoxy.xunwen.pipeline;
 
 import cn.guoxy.xunwen.classify.Action;
+import cn.guoxy.xunwen.classify.CategoryVectors;
 import cn.guoxy.xunwen.classify.Classifier;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
@@ -31,6 +32,9 @@ public final class FileProcessor {
   private final ContentExtractor extractor;
   private final FileMover mover;
   private final OperationLog log;
+  // 类目向量表按 tree 实例缓存：树变更（批准/删除类别）产生新实例即自动重建
+  private CategoryTree vectorTree;
+  private CategoryVectors vectors;
 
   public FileProcessor(Path repoRoot, GlobalConfig cfg, LlmClient llm, ContentExtractor extractor) {
     this.repoRoot = repoRoot.toAbsolutePath().normalize();
@@ -65,7 +69,13 @@ public final class FileProcessor {
         return null; // 已入库（中断续跑）
       }
       ContentExtractor.Extracted ex = extractor.extract(file);
-      Classifier.Outcome outcome = classifier.classify(name, ex.text(), ex.hasTextLayer(), tree);
+      // 文件向量提前算：融合钳制与索引存储共用；embed 失败 → null（钳制旁路，索引用中性兜底）
+      String rawText = ex.text();
+      String embedText =
+          rawText.length() > EMBED_CHARS ? rawText.substring(0, EMBED_CHARS) : rawText;
+      float[] fileVec = embedOrNull(embedText);
+      Classifier.Outcome outcome =
+          classifier.classify(name, ex.text(), ex.hasTextLayer(), tree, vectorsFor(tree), fileVec);
 
       Path destDir =
           outcome.action() == Action.AUTO_MOVE
@@ -95,8 +105,6 @@ public final class FileProcessor {
             case PENDING -> "PENDING";
             case UNKNOWN -> "UNKNOWN";
           };
-      String text = ex.text();
-      String embedText = text.length() > EMBED_CHARS ? text.substring(0, EMBED_CHARS) : text;
       index.upsert(
           new Doc(
               posix(repoRoot.relativize(actual)),
@@ -107,8 +115,8 @@ public final class FileProcessor {
               Files.size(actual),
               status,
               outcome.action() == Action.AUTO_MOVE ? outcome.categoryPath() : "",
-              text,
-              embedSafely(embedText)));
+              rawText,
+              fileVec == null ? neutralVector() : fileVec));
       return actual;
     } catch (IOException | IllegalStateException e) {
       // 移动失败（Windows 占用等）或 LLM 传输失败：本批跳过，下轮再处理，不让整批任务崩
@@ -117,12 +125,22 @@ public final class FileProcessor {
     return null;
   }
 
-  private float[] embedSafely(String text) {
+  /** 文件向量；embed 失败返回 null（向量路旁路），索引入库时再以中性向量兜底。 */
+  private float[] embedOrNull(String text) {
     try {
       return embedder.embed(text);
     } catch (RuntimeException e) { // Jackson 3 unchecked / HTTP 异常
-      return neutralVector();
+      return null;
     }
+  }
+
+  /** 类目向量表按 tree 实例惰性重建；树变更（批准/删除类别）产生新实例即自动刷新。 */
+  private CategoryVectors vectorsFor(CategoryTree tree) {
+    if (vectors == null || vectorTree != tree) {
+      vectorTree = tree;
+      vectors = new CategoryVectors(tree, embedder);
+    }
+    return vectors;
   }
 
   /** Lucene COSINE 拒绝全零向量：单位向量作中性兜底，保证入库不阻断。 */

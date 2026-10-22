@@ -160,6 +160,8 @@
         <version>3.5.2</version>
         <configuration> <!-- 防 fork 子进程拿到 manifest-only 假 classpath：surefire 默认用 manifest jar 启动 -->
           <useSystemClassLoader>false</useSystemClassLoader>
+          <!-- 启用 JDK Vector API，消除 Lucene 向量检索降级警告并提升 KNN 性能 -->
+          <argLine>--add-modules jdk.incubator.vector</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -178,6 +180,10 @@
               <noManPages>true</noManPages>
               <stripDebug>true</stripDebug>
               <noHeaderFiles>true</noHeaderFiles>
+              <!-- 启用 JDK Vector API，消除 Lucene 向量检索降级警告并提升 KNN 性能 -->
+              <options>
+                <option>--add-modules jdk.incubator.vector</option>
+              </options>
             </configuration>
           </execution>
         </executions>
