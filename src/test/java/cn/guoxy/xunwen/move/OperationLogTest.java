@@ -35,25 +35,4 @@ class OperationLogTest {
     assertEquals(1, ops.size());
     assertEquals("b1", ops.getFirst().batchId());
   }
-
-  @Test
-  void rollbackRestoresFilesAndAppendsRevert(@TempDir Path root) throws Exception {
-    Path dirA = Files.createDirectories(root.resolve("a"));
-    Path dirB = Files.createDirectories(root.resolve("b"));
-    Path src = dirA.resolve("f.txt");
-    Path dest = dirB.resolve("f.txt");
-    Files.writeString(src, "x");
-    var mover = new FileMover(root);
-    mover.move(src, dirB); // a/f.txt -> b/f.txt（移动本身，日志由调用方记录）
-
-    var log = new OperationLog(root.resolve("ops.jsonl"));
-    log.append(
-        new OperationLog.Op(
-            "b1", System.currentTimeMillis(), "MOVE", src.toString(), dest.toString()));
-
-    log.rollback("b1");
-    assertTrue(Files.exists(src));
-    assertFalse(Files.exists(dest));
-    assertTrue(log.all().stream().anyMatch(op -> op.kind().equals("REVERT")));
-  }
 }

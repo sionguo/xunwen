@@ -9,7 +9,6 @@ import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.HybridSearcher;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
-import cn.guoxy.xunwen.move.OperationLog;
 import cn.guoxy.xunwen.pipeline.IngestTask;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
 import cn.guoxy.xunwen.repo.CategoryTree;
@@ -51,12 +50,11 @@ class EndToEndSmokeTest {
       file -> new ContentExtractor.Extracted("这是一段足够长且包含主题词的测试文本内容用于提取", true);
 
   @Test
-  void fullPipelineColdStartReshuffleIngestSearchRollback(@TempDir Path root) throws Exception {
+  void fullPipelineColdStartReshuffleIngestSearch(@TempDir Path root) throws Exception {
     // 1. 造仓库：3 个文件
     Files.writeString(root.resolve("季度报告.txt"), "销售报告内容");
     Files.writeString(root.resolve("年会通知.txt"), "通知内容");
-    Path sub = Files.createDirectories(root.resolve("旧结构")).resolve("发票.txt");
-    Files.writeString(sub, "发票");
+    Files.writeString(Files.createDirectories(root.resolve("旧结构")).resolve("发票.txt"), "发票");
 
     GlobalConfig cfg =
         new GlobalConfig("http://localhost:9/v1", "", "m", "e", 4, 0.85, 0.5, 2); // 4 维便于测试
@@ -68,8 +66,7 @@ class EndToEndSmokeTest {
     assertEquals(List.of("工作文档", "工作文档/报告", "其他"), tree.flattenPaths());
 
     // 3. 首次重排
-    var reshuffle = new ReshuffleTask(root, cfg, llm, EXTRACTOR);
-    String batch = reshuffle.run(ReshuffleTask.Progress.noop());
+    new ReshuffleTask(root, cfg, llm, EXTRACTOR).run(ReshuffleTask.Progress.noop());
     assertTrue(Files.exists(root.resolve("工作文档/季度报告.txt")));
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("发票.txt"))); // UNKNOWN → 待分类
 
@@ -87,13 +84,5 @@ class EndToEndSmokeTest {
       assertTrue(hits.size() >= 2);
       assertTrue(hits.stream().allMatch(h -> h.path().contains("通知")));
     }
-
-    // 6. 批次回滚：重排前结构还原
-    new OperationLog(RepoPaths.operationsJsonl(root)).rollback(batch);
-    assertTrue(Files.exists(root.resolve("季度报告.txt")));
-    assertTrue(Files.exists(sub)); // 旧结构里的发票.txt 回到原位
-    assertFalse(Files.exists(root.resolve("工作文档/季度报告.txt"))); // 类别目录下不留残留
-    assertFalse(Files.exists(root.resolve("新通知.txt"))); // ingest 批次不随重排回滚，仍在其类别目录
-    assertTrue(Files.exists(root.resolve("工作文档/新通知.txt")));
   }
 }

@@ -53,10 +53,7 @@ class ReshuffleTaskTest {
       assertTrue(idx.findByPath("工作文档/报告.txt").isPresent());
     }
     var log = new OperationLog(RepoPaths.operationsJsonl(root));
-    assertEquals(2, log.batch(batch).size());
-    log.rollback(batch); // FR-4：批次回滚还原
-    assertTrue(Files.exists(root.resolve("报告.txt")));
-    assertTrue(Files.exists(nested));
+    assertEquals(2, log.batch(batch).size()); // 移动留痕,供审计
   }
 
   @Test

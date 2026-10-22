@@ -23,7 +23,7 @@ import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 
-/** 类别树页：冷启动提案、批准入树、重排（可取消）、批次回滚、右键编辑提案（FR-6/FR-3/FR-4）。 */
+/** 类别树页：冷启动提案、批准入树、重排（可取消）、右键编辑提案（FR-6/FR-3）。 */
 public class TreeController {
   private final AppState state;
   private CategoryTree proposal; // 非空 = 正在编辑提案
@@ -189,7 +189,7 @@ public class TreeController {
         () -> new ReshuffleTask(repo, state.config(), state.llm(), state.extractor()).run(listener),
         batch -> {
           progress.setProgress(1);
-          status.setText("重排完成，批次：" + batch + "（可回滚）");
+          status.setText("重排完成，批次：" + batch);
           reload();
         },
         t -> {
@@ -203,7 +203,7 @@ public class TreeController {
   private void onCancelReshuffle() {
     if (activeCancelFlag != null) {
       activeCancelFlag.set(true);
-      status.setText("正在取消，已完成的文件保留（批次仍可回滚）…");
+      status.setText("正在取消，已完成的文件保留…");
     }
   }
 
@@ -281,30 +281,6 @@ public class TreeController {
                   },
                   t -> Fx.error("删除失败", t));
             });
-  }
-
-  @FXML
-  private void onRollback() {
-    Path repo = state.currentRepo();
-    if (repo == null) {
-      return;
-    }
-    var dialog = new TextInputDialog();
-    dialog.setHeaderText("输入要回滚的批次号");
-    dialog
-        .showAndWait()
-        .ifPresent(
-            batch ->
-                Fx.runEngine(
-                    state,
-                    () ->
-                        new ApprovalService(repo, state.config(), state.llm(), state.extractor())
-                            .rollbackBatch(batch.strip()),
-                    n -> {
-                      reload();
-                      Fx.alert("已回滚批次 " + batch + "，还原 " + n + " 个文件");
-                    },
-                    t -> Fx.error("回滚失败", t)));
   }
 
   private static String pathOf(TreeItem<String> item) {

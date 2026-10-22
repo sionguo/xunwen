@@ -19,8 +19,6 @@
       <Separator orientation="VERTICAL"/>
       <Button text="重排仓库" onAction="#onReshuffle"/>
       <Button text="取消重排" onAction="#onCancelReshuffle"/>
-      <Separator orientation="VERTICAL"/>
-      <Button text="回滚批次" onAction="#onRollback" styleClass="danger"/>
     </ToolBar>
   </top>
   <center>
