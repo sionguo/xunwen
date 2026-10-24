@@ -27,17 +27,19 @@ public abstract class ViewTestBase extends ApplicationTest {
 
   protected void showView(String fxml, Object controller) {
     interact(
-        () -> {
-          try {
-            FXMLLoader loader = new FXMLLoader(ViewTestBase.class.getResource(fxml));
-            loader.setController(controller);
-            Parent root = loader.load();
-            TestApp.stage.getScene().setRoot(root);
-            rootNode(root); // robot 查询域刷新到新场景（默认缓存 launch 时的旧节点）
-          } catch (IOException e) {
-            throw new UncheckedIOException(e);
-          }
-        });
+        (java.util.concurrent.Callable<Void>)
+            () -> {
+              try {
+                FXMLLoader loader = new FXMLLoader(ViewTestBase.class.getResource(fxml));
+                loader.setController(controller);
+                Parent root = loader.load();
+                TestApp.stage.getScene().setRoot(root);
+                rootNode(root); // robot 查询域刷新到新场景（默认缓存 launch 时的旧节点）
+                return null;
+              } catch (IOException e) {
+                throw new UncheckedIOException(e);
+              }
+            });
     targetWindow(TestApp.stage); // 原生键盘事件(write/eraseText)需要明确目标窗口
   }
 
@@ -97,16 +99,33 @@ public abstract class ViewTestBase extends ApplicationTest {
     }
   }
 
-  /** 按 fx:id 在场景中找节点（自遍历，不依赖 robot 查询缓存）。 */
+  /** 按 fx:id 在场景中找节点（自遍历，不依赖 robot 查询缓存）。找不到时等几轮 FX 事件重试，仍无则带场景树 dump 报错。 */
   protected javafx.scene.Node byId(String fxId) {
     String id = fxId.startsWith("#") ? fxId.substring(1) : fxId;
     var out = new javafx.scene.Node[1];
-    interact(
-        (java.util.concurrent.Callable<Void>)
-            () -> {
-              out[0] = findById(TestApp.stage.getScene().getRoot(), id);
-              return null;
-            });
+    for (int attempt = 0; attempt < 10 && out[0] == null; attempt++) {
+      if (attempt > 0) {
+        org.testfx.util.WaitForAsyncUtils.waitForFxEvents(); // 慢机器上换根后的 pulse 可能未提交，等一轮再找
+      }
+      interact(
+          (java.util.concurrent.Callable<Void>)
+              () -> {
+                out[0] = findById(TestApp.stage.getScene().getRoot(), id);
+                return null;
+              });
+    }
+    if (out[0] == null) {
+      var rootDesc = new String[1];
+      interact(
+          (java.util.concurrent.Callable<Void>)
+              () -> {
+                javafx.scene.Node root = TestApp.stage.getScene().getRoot();
+                rootDesc[0] = String.valueOf(root);
+                dumpButtons(root);
+                return null;
+              });
+      throw new AssertionError("场景中找不到 " + fxId + "，root=" + rootDesc[0] + "（场景树见上方 [debug-dump]）");
+    }
     return out[0];
   }
 
