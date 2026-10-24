@@ -19,6 +19,21 @@ jobs:
           distribution: temurin
           java-version: 25
           cache: maven
+      - name: Cache JiaJiaOCR
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/com/jiajia
+          key: jiajia-ocr-2.2.0
+      # JiaJiaOCR 不在 Maven Central，jar 约 209MB（内置模型），从上游 Release 下载后装入本地仓库
+      - name: Install JiaJiaOCR
+        shell: bash
+        run: |
+          if [ ! -f "$HOME/.m2/repository/com/jiajia/JiaJia/2.2.0/JiaJia-2.2.0.jar" ]; then
+            curl -fSL --retry 3 -o /tmp/JiaJiaOCR-2.2.0.jar \
+              https://github.com/jiangnanboy/JiaJiaOCR/releases/download/JiaJiaOCR-2.2.0/JiaJiaOCR-2.2.0.jar
+            ./mvnw --batch-mode -q install:install-file -Dfile=/tmp/JiaJiaOCR-2.2.0.jar \
+              -DgroupId=com.jiajia -DartifactId=JiaJia -Dversion=2.2.0 -Dpackaging=jar
+          fi
       - name: Verify（编译 + 测试 + spotless 检查）
         shell: bash
         run: ./mvnw --batch-mode verify
