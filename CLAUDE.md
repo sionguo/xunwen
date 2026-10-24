@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目
 
-xunwen(询问)— 基于 Lucene 全文检索的 JavaFX 桌面应用。Java 25,JPMS 模块化(`module-info.java`)。UI 栈:JavaFX 27 + ControlsFX + Ikonli + AtlantaFX;日志 SLF4J + Logback;测试 JUnit 5。
+xunwen(寻文)— 基于 Lucene 全文检索的 JavaFX 桌面应用。Java 25,JPMS 模块化(`module-info.java`)。UI 栈:JavaFX 27 + ControlsFX + Ikonli + AtlantaFX;日志 SLF4J + Logback;测试 JUnit 5。
 
 ## 常用命令
 
@@ -13,12 +13,21 @@ xunwen(询问)— 基于 Lucene 全文检索的 JavaFX 桌面应用。Java 25,JP
 - 格式化单个文件:`java -jar tools/google-java-format-1.33.0-all-deps.jar --replace <file>` — 编辑 `.java` 文件后 PostToolUse hook 会自动执行,无需手动跑
 - 全项目格式化:`mvn spotless:apply`
 - 单个测试:`mvn test -Dtest=<TestClass>`
+- 打包发布:`mvn -Pdist clean package -DskipTests`(macOS 出 DMG、Windows 出 MSI、Linux 出 DEB,产物在 `target/jpackage/`;`-Djpackage.type=IMAGE` 只出 .app/目录,便于快速验证)
 
 ## 架构约束
 
 - **JPMS**:引入新依赖时必须同时在 `src/main/java/module-info.java` 加 `requires`;新增包含 FXML controller 的包时需在 `module-info.java` 中 `opens` 给 `javafx.fxml`。
 - **格式**:Spotless 强制 google-java-format(GOOGLE 风格),版本钉在 1.33.0 — pom 配置与 `tools/` 下 hook 用的 jar 是同一个版本,改一边必须同步改另一边。
-- **入口**:`Launcher.main` → `Application.launch(HelloApplication.class)`,这是 JPMS 下启动 JavaFX 的标准模式;`javafx-maven-plugin` 的 mainClass 为 `cn.guoxy.xunwen/cn.guoxy.xunwen.HelloApplication`。
+- **入口**:`Launcher.main` → `Application.launch(XunwenApp.class)`,这是 JPMS 下启动 JavaFX 的标准模式;`javafx-maven-plugin` 的 mainClass 为 `cn.guoxy.xunwen.Launcher`。
+
+## 打包发布
+
+- `dist` profile 用 jpackage(classpath 模式 + `Launcher` 解耦主类)打原生安装包;运行时参数含 `--add-modules=jdk.incubator.vector`(Lucene KNN)与 `--enable-native-access=ALL-UNNAMED`(Lucene mmap)。
+- 平台差异(类型/图标/win・linux 参数)由 `dist-mac` / `dist-win` / `dist-linux` 三个按 OS 激活的属性 profile 注入;akman 插件(0.1.5)不做按 OS 过滤,靠「非当前平台参数置空即跳过」实现。新增平台参数时两处(占位默认值 + OS profile)必须成对改。
+- `appversion` 与 `project.version` 手工同步维护(jpackage 不接受 SNAPSHOT)。
+- 对外分发需 Developer ID 签名 + 公证(`macsign` 现为 false,仅 ad-hoc;未签名包在别的 Mac 上需右键打开)。
+- 应用图标源文件 `packaging/IconGen.java`(纯 JDK),重新生成:`java packaging/IconGen.java packaging`。
 
 ## 提交规范
 
