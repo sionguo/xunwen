@@ -28,6 +28,20 @@
     <tika.version>4.1.0</tika.version>
 
     <junit.version>5.12.1</junit.version>
+
+    <!-- 打包发布属性:非当前 OS 的平台参数保持空值/false,插件会自动跳过(见 dist profile) -->
+    <jpackage.type>PLATFORM</jpackage.type>
+    <jpackage.icon>${project.basedir}/packaging/Xunwen.png</jpackage.icon>
+    <jpackage.mac.package.name/>
+    <jpackage.mac.identifier/>
+    <jpackage.win.menu>false</jpackage.win.menu>
+    <jpackage.win.shortcut>false</jpackage.win.shortcut>
+    <jpackage.win.peruser>false</jpackage.win.peruser>
+    <jpackage.win.uuid/>
+    <jpackage.linux.maintainer/>
+    <jpackage.linux.shortcut>false</jpackage.linux.shortcut>
+    <jpackage.linux.menu/>
+    <jpackage.linux.category/>
   </properties>
 
   <dependencies>
@@ -212,6 +226,19 @@
         </executions>
       </plugin>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <!-- jpackage 以 classpath 方式启动时按此入口运行(Launcher 与 JavaFX 解耦) -->
+              <mainClass>cn.guoxy.xunwen.Launcher</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
         <version>3.8.0</version>
@@ -237,4 +264,138 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- 打包发布:mvn -Pdist clean package [-DskipTests] [-Djpackage.type=IMAGE]
+         产物在 target/jpackage/(macOS → DMG,Windows → MSI,Linux → DEB);
+         -Djpackage.type=IMAGE 只出 Xunwen.app/绿色目录,便于快速验证。
+         发布版本号与 project.version 同步维护,见下方 appversion。 -->
+    <profile>
+      <id>dist</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <configuration>
+              <!-- 应用 jar 直接落进 jpackage 的 input 目录,与依赖 jar 同级 -->
+              <outputDirectory>${project.build.directory}/jpackage/input</outputDirectory>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <version>3.8.1</version>
+            <executions>
+              <execution>
+                <id>copy-deps-for-jpackage</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>copy-dependencies</goal>
+                </goals>
+                <configuration>
+                  <includeScope>runtime</includeScope>
+                  <outputDirectory>${project.build.directory}/jpackage/input</outputDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>com.github.akman</groupId>
+            <artifactId>jpackage-maven-plugin</artifactId>
+            <version>0.1.5</version>
+            <configuration>
+              <input>${project.build.directory}/jpackage/input</input>
+              <mainjar>${project.build.finalName}.jar</mainjar>
+              <mainclass>cn.guoxy.xunwen.Launcher</mainclass>
+              <name>Xunwen</name>
+              <!-- jpackage 要求版本号仅含数字与点,不能带 SNAPSHOT -->
+              <appversion>1.0</appversion>
+              <vendor>Guo Xiaoyong</vendor>
+              <description>寻文 — 基于 Lucene 的本地文档智能检索桌面应用</description>
+              <copyright>Copyright (C) 2026 Guo Xiaoyong</copyright>
+              <icon>${jpackage.icon}</icon>
+              <type>${jpackage.type}</type>
+              <dest>${project.build.directory}/jpackage</dest>
+              <!-- 不传 licensefile:DMG 会因此挂 SLA 协议弹窗,增加安装摩擦;
+                   许可文本随源码 LICENSE 分发即可 -->
+              <!-- 启用 Vector API 并放行 Lucene mmap 的受限 native 方法 -->
+              <javaoptions>
+                --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED
+              </javaoptions>
+              <macpackagename>${jpackage.mac.package.name}</macpackagename>
+              <macpackageidentifier>${jpackage.mac.identifier}</macpackageidentifier>
+              <!-- 对外分发需 Developer ID 证书签名 + 公证时,置 true 并补证书配置 -->
+              <macsign>false</macsign>
+              <winmenu>${jpackage.win.menu}</winmenu>
+              <winshortcut>${jpackage.win.shortcut}</winshortcut>
+              <winperuserinstall>${jpackage.win.peruser}</winperuserinstall>
+              <winupgradeuuid>${jpackage.win.uuid}</winupgradeuuid>
+              <linuxdebmaintainer>${jpackage.linux.maintainer}</linuxdebmaintainer>
+              <linuxshortcut>${jpackage.linux.shortcut}</linuxshortcut>
+              <linuxmenugroup>${jpackage.linux.menu}</linuxmenugroup>
+              <linuxappcategory>${jpackage.linux.category}</linuxappcategory>
+            </configuration>
+            <executions>
+              <execution>
+                <id>create-installer</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>jpackage</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <!-- 以下三个 profile 仅按当前 OS 设定安装包类型与图标文件,不绑定任何执行 -->
+    <profile>
+      <id>dist-mac</id>
+      <activation>
+        <os>
+          <family>mac</family>
+        </os>
+      </activation>
+      <properties>
+        <jpackage.type>DMG</jpackage.type>
+        <jpackage.icon>${project.basedir}/packaging/Xunwen.icns</jpackage.icon>
+        <jpackage.mac.package.name>Xunwen</jpackage.mac.package.name>
+        <jpackage.mac.identifier>cn.guoxy.xunwen</jpackage.mac.identifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>dist-win</id>
+      <activation>
+        <os>
+          <family>windows</family>
+        </os>
+      </activation>
+      <properties>
+        <jpackage.type>MSI</jpackage.type>
+        <jpackage.icon>${project.basedir}/packaging/Xunwen.ico</jpackage.icon>
+        <jpackage.win.menu>true</jpackage.win.menu>
+        <jpackage.win.shortcut>true</jpackage.win.shortcut>
+        <jpackage.win.peruser>true</jpackage.win.peruser>
+        <!-- 固定升级码,保证新版 MSI 可覆盖安装旧版 -->
+        <jpackage.win.uuid>C997546E-292B-44DE-84BF-2826F26CF6D8</jpackage.win.uuid>
+      </properties>
+    </profile>
+    <profile>
+      <id>dist-linux</id>
+      <activation>
+        <os>
+          <family>linux</family>
+        </os>
+      </activation>
+      <properties>
+        <jpackage.type>DEB</jpackage.type>
+        <jpackage.icon>${project.basedir}/packaging/Xunwen.png</jpackage.icon>
+        <jpackage.linux.maintainer>xiguo@corilead.com</jpackage.linux.maintainer>
+        <jpackage.linux.shortcut>true</jpackage.linux.shortcut>
+        <jpackage.linux.menu>Office</jpackage.linux.menu>
+        <jpackage.linux.category>Office</jpackage.linux.category>
+      </properties>
+    </profile>
+  </profiles>
 </project>
