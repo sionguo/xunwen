@@ -14,6 +14,7 @@
     <HBox styleClass="top-bar" spacing="10" alignment="CENTER_LEFT">
       <Label text="寻文" styleClass="app-title"/>
       <Label fx:id="currentRepoLabel" styleClass="app-repo"/>
+      <Label fx:id="activityLabel" styleClass="app-activity" HBox.hgrow="ALWAYS" maxWidth="Infinity" textOverrun="CLIP"/>
     </HBox>
   </top>
   <left>
@@ -21,8 +22,8 @@
       <fx:define>
         <ToggleGroup fx:id="navGroup"/>
       </fx:define>
-      <ToggleButton fx:id="reposBtn" text="仓库" toggleGroup="$navGroup" styleClass="nav-button">
-        <graphic><FontIcon iconLiteral="fas-archive" iconSize="15"/></graphic>
+      <ToggleButton fx:id="overviewBtn" text="总览" toggleGroup="$navGroup" styleClass="nav-button">
+        <graphic><FontIcon iconLiteral="fas-tachometer-alt" iconSize="15"/></graphic>
       </ToggleButton>
       <ToggleButton fx:id="treeBtn" text="类别树" toggleGroup="$navGroup" styleClass="nav-button">
         <graphic><FontIcon iconLiteral="fas-sitemap" iconSize="15"/></graphic>

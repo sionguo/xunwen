@@ -1,6 +1,8 @@
 package cn.guoxy.xunwen.ui;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
+import cn.guoxy.xunwen.llm.LlmClient;
+import java.util.List;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
 
@@ -56,11 +58,36 @@ public class SettingsController {
     }
   }
 
+  /** 连接测试：对话与向量两个端点分别探测并分别报告（chat 挂而 embed 通时不再误报「连接正常」）。 */
   @FXML
   private void onTestConnection() {
     Fx.runAsync(
-        () -> state.llm().embed("连接测试"),
-        v -> Fx.alert("连接正常，向量维度=" + v.length),
-        t -> Fx.error("连接失败", t));
+        () -> {
+          String chat;
+          try {
+            state.llm().chat(List.of(LlmClient.Msg.user("连接测试，请只回复：OK")));
+            chat = "正常";
+          } catch (Exception e) {
+            chat = "失败：" + rootMessage(e);
+          }
+          String embed;
+          try {
+            embed = "正常（维度 " + state.llm().embed("连接测试").length + "）";
+          } catch (Exception e) {
+            embed = "失败：" + rootMessage(e);
+          }
+          return new String[] {chat, embed};
+        },
+        r -> Fx.alert("连接测试", "对话服务：" + r[0] + "\n向量服务：" + r[1]),
+        t -> Fx.error("连接测试失败", t));
+  }
+
+  private static String rootMessage(Throwable t) {
+    Throwable cur = t;
+    while (cur.getCause() != null && cur.getCause() != cur) {
+      cur = cur.getCause();
+    }
+    String m = cur.getMessage();
+    return m == null || m.isBlank() ? cur.getClass().getSimpleName() : m;
   }
 }

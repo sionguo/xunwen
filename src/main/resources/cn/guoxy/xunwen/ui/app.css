@@ -1,5 +1,32 @@
 /* 全局样式:基于 AtlantaFX Primer 主题变量,明暗主题自动适配。 */
 
+.root {
+  /* AtlantaFX 3.0 没有 -color-fg-on-emphasis 这个 lookup 令牌（主题用 .text-on-emphasis 工具类代替），
+     author 样式表引用它会告警且解析失败，这里显式补齐（两个主题的强调底色上都用白字） */
+  -color-fg-on-emphasis: white;
+}
+
+/* 主题默认禁用态 0.4 透明度在工具栏里近乎不可见，提高到 0.75 保留「不可点」观感 */
+.button:disabled {
+  -fx-opacity: 0.75;
+}
+
+/* 主题的 .tool-bar > .container > .button 特异性更高，会盖掉 .accent/.danger 的强调底色，
+   工具栏里的「生成类别树提案」「重排仓库」「取消重排」变成浅底白字近乎隐形，这里夺回底色 */
+.tool-bar > .container > .button.accent {
+  -color-button-bg: -color-accent-emphasis;
+  -color-button-bg-hover: -color-accent-emphasis;
+  -color-button-bg-focused: -color-accent-6;
+  -color-button-bg-pressed: -color-accent-emphasis;
+}
+
+.tool-bar > .container > .button.danger {
+  -color-button-bg: -color-danger-emphasis;
+  -color-button-bg-hover: -color-danger-emphasis;
+  -color-button-bg-focused: -color-danger-6;
+  -color-button-bg-pressed: -color-danger-emphasis;
+}
+
 /* ── 顶部栏 ─────────────────────────────── */
 .top-bar {
   -fx-padding: 12 20 12 20;
@@ -135,6 +162,41 @@
   -fx-border-color: -color-border-default;
 }
 
+.search-field {
+  -fx-font-size: 14px;
+  -fx-padding: 10 14 10 14;
+  -fx-background-radius: 8;
+}
+
+/* App Search 式分面筛选：左侧栏 + 右侧结果 */
+.facet-panel {
+  -fx-background-color: -color-bg-inset;
+}
+
+.facet-box {
+  -fx-padding: 14 14 14 16;
+  -fx-spacing: 6;
+}
+
+.facet-header {
+  -fx-font-size: 13px;
+  -fx-font-weight: bold;
+}
+
+.facet-row {
+  -fx-padding: 1 0 1 0;
+}
+
+.facet-count {
+  -fx-text-fill: -color-fg-subtle;
+  -fx-font-size: 11px;
+}
+
+.result-summary {
+  -fx-text-fill: -color-fg-muted;
+  -fx-font-size: 12px;
+}
+
 .hit-title {
   -fx-fill: -color-fg-default;
   -fx-font-weight: bold;
@@ -172,4 +234,98 @@
   -fx-text-fill: -color-success-fg;
   -fx-font-size: 11px;
   -fx-font-weight: bold;
+}
+
+/* ── 顶栏活动摘要 ───────────────────────── */
+.app-activity {
+  -fx-text-fill: -color-fg-subtle;
+  -fx-font-size: 12px;
+  -fx-alignment: center-right;
+  -fx-cursor: hand;
+}
+
+/* ── 总览页统计卡片 ─────────────────────── */
+.stat-card {
+  -fx-background-color: -color-bg-overlay;
+  -fx-border-color: -color-border-default;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-padding: 12 22 12 22;
+  -fx-spacing: 2;
+  -fx-min-width: 110;
+  -fx-alignment: center-left;
+}
+
+.stat-title {
+  -fx-text-fill: -color-fg-muted;
+  -fx-font-size: 12px;
+}
+
+.stat-value {
+  -fx-font-size: 22px;
+  -fx-font-weight: bold;
+}
+
+.stat-indexed {
+  -fx-text-fill: -color-success-fg;
+}
+
+.stat-pending {
+  -fx-text-fill: -color-warning-fg;
+}
+
+.stat-unknown {
+  -fx-text-fill: -color-danger-fg;
+}
+
+/* 可点击的统计卡（待审/未知 → 直达待审页） */
+.stat-clickable {
+  -fx-cursor: hand;
+}
+
+.stat-clickable:hover {
+  -fx-border-color: -color-accent-fg;
+}
+
+/* ── 仓库生命周期徽标（任务流线索） ─────── */
+.repo-state {
+  -fx-font-size: 11px;
+}
+
+.repo-state-open {
+  -fx-text-fill: -color-success-fg;
+  -fx-font-weight: bold;
+}
+
+.repo-state-warn {
+  -fx-text-fill: -color-warning-fg;
+}
+
+.repo-state-ready {
+  -fx-text-fill: -color-fg-muted;
+}
+
+/* ── 表格状态徽标（与统计卡同色语义） ────── */
+.status-badge {
+  -fx-font-size: 11px;
+  -fx-font-weight: bold;
+  -fx-padding: 1 8 1 8;
+  -fx-background-radius: 9;
+}
+
+.status-pending {
+  -fx-text-fill: -color-warning-fg;
+  -fx-background-color: -color-warning-subtle;
+}
+
+.status-unknown {
+  -fx-text-fill: -color-danger-fg;
+  -fx-background-color: -color-danger-subtle;
+}
+
+/* ── 类别树节点文件数 ───────────────────── */
+.tree-count {
+  -fx-text-fill: -color-fg-subtle;
+  -fx-font-size: 11px;
+  -fx-padding: 0 0 0 6;
 }

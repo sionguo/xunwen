@@ -50,12 +50,19 @@ public final class WatchServiceBinder implements AutoCloseable {
       Fx.runEngine(
           state,
           () -> new IngestTask(repo, state.config(), state.llm(), state.extractor()).ingest(stable),
-          records -> {
-            for (MoveRecord r : records) {
+          stats -> {
+            for (MoveRecord r : stats.moved()) {
               watcher.ignorePrefix(r.to()); // 防回环：自己移动产生的 CREATE 不再处理
             }
-            // 不弹窗打扰：结果去类别树/待审页查看
+            // 不弹窗打扰：顶栏活动摘要 + 类别树/待审/总览页自动刷新
             state.markDataChanged();
+            state.activity(
+                "监视：「"
+                    + repo.getFileName()
+                    + "」新到 "
+                    + stats.touched()
+                    + " 个文件 — "
+                    + stats.summary());
           },
           t -> Fx.error("新文件处理失败", t));
     } catch (Exception e) {

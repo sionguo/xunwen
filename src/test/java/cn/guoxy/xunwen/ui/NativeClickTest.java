@@ -15,8 +15,8 @@ class NativeClickTest extends ViewTestBase {
               state.currentRepoProperty().set(null);
               return null;
             });
-    showView("repos-view.fxml", new ReposController(state));
-    nativeClick(buttonByText("打开")); // 无选中 → 无动作不弹窗
+    showView("pending-view.fxml", new PendingController(state));
+    nativeClick(buttonByText("忽略提议")); // 无选中提议 → 无动作不弹窗
     assertFalse(dialogVisible(), "真实点击未生效或产生了意外弹窗");
 
     showView("search-view.fxml", new SearchController(state));

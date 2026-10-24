@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<VBox styleClass="page" spacing="12" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
+  <Label text="总览" styleClass="page-title"/>
+  <Label fx:id="repoHint" styleClass="page-hint"/>
+  <HBox spacing="10" alignment="CENTER_LEFT">
+    <Label text="仓库任务（所有仓库的下一步行动）" styleClass="page-hint" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+    <Button fx:id="addRepoBtn" text="添加仓库" onAction="#onAddRepo" styleClass="accent"/>
+  </HBox>
+  <TableView fx:id="repoTable" prefHeight="150">
+    <columns>
+      <TableColumn fx:id="repoCol" text="仓库" prefWidth="240"/>
+      <TableColumn fx:id="repoStateCol" text="状态" prefWidth="200"/>
+      <TableColumn fx:id="attentionCol" text="待审 / 未知" prefWidth="100"/>
+      <TableColumn fx:id="repoActionCol" text="操作" prefWidth="130"/>
+    </columns>
+    <placeholder>
+      <Label text="还没有仓库，点右上「添加仓库」选择文件夹开始" styleClass="placeholder-label"/>
+    </placeholder>
+  </TableView>
+  <HBox spacing="10">
+    <VBox styleClass="stat-card">
+      <Label text="全部文件" styleClass="stat-title"/>
+      <Label fx:id="statTotal" text="0" styleClass="stat-value"/>
+    </VBox>
+    <VBox styleClass="stat-card">
+      <Label text="已归档" styleClass="stat-title"/>
+      <Label fx:id="statIndexed" text="0" styleClass="stat-value, stat-indexed"/>
+    </VBox>
+    <VBox styleClass="stat-card">
+      <Label text="待审" styleClass="stat-title"/>
+      <Label fx:id="statPending" text="0" styleClass="stat-value, stat-pending"/>
+    </VBox>
+    <VBox styleClass="stat-card">
+      <Label text="未知" styleClass="stat-title"/>
+      <Label fx:id="statUnknown" text="0" styleClass="stat-value, stat-unknown"/>
+    </VBox>
+  </HBox>
+  <Label text="操作批次（最近在前，可整批回滚还原移动）" styleClass="page-hint"/>
+  <TableView fx:id="batches" VBox.vgrow="ALWAYS">
+    <columns>
+      <TableColumn fx:id="timeCol" text="时间" prefWidth="150"/>
+      <TableColumn fx:id="kindCol" text="类型" prefWidth="110"/>
+      <TableColumn fx:id="batchCol" text="批次号" prefWidth="220"/>
+      <TableColumn fx:id="movesCol" text="移动数" prefWidth="80"/>
+      <TableColumn fx:id="actionCol" text="操作" prefWidth="120"/>
+    </columns>
+  </TableView>
+</VBox>

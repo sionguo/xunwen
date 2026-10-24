@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 回归：六个子视图 FXML 都必须能连同控制器一起加载（事件处理引用与 fx:id 注入齐全）。 */
+/** 回归：五个子视图 FXML 都必须能连同控制器一起加载（事件处理引用与 fx:id 注入齐全）。 */
 class ViewsLoadTest {
 
   @TempDir Path dir;
@@ -34,7 +34,7 @@ class ViewsLoadTest {
     record View(String fxml, Object controller) {}
     List<View> views =
         List.of(
-            new View("repos-view.fxml", new ReposController(state)),
+            new View("dashboard-view.fxml", new DashboardController(state)),
             new View("tree-view.fxml", new TreeController(state)),
             new View("pending-view.fxml", new PendingController(state)),
             new View("search-view.fxml", new SearchController(state)),

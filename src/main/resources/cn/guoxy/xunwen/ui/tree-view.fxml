@@ -13,12 +13,12 @@
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1">
   <top>
     <ToolBar styleClass="search-bar">
-      <Button text="生成类别树提案" onAction="#onGenerateProposal"/>
-      <Button text="批准入树" onAction="#onApproveProposal"/>
-      <Button text="放弃提案" onAction="#onDiscardProposal"/>
+      <Button fx:id="generateBtn" text="生成类别树提案" onAction="#onGenerateProposal" styleClass="accent"/>
+      <Button fx:id="approveBtn" text="批准入树" onAction="#onApproveProposal"/>
+      <Button fx:id="discardBtn" text="放弃提案" onAction="#onDiscardProposal"/>
       <Separator orientation="VERTICAL"/>
-      <Button text="重排仓库" onAction="#onReshuffle"/>
-      <Button text="取消重排" onAction="#onCancelReshuffle"/>
+      <Button fx:id="reshuffleBtn" text="重排仓库" onAction="#onReshuffle" styleClass="accent"/>
+      <Button fx:id="cancelBtn" text="取消重排" onAction="#onCancelReshuffle" disable="true" styleClass="danger"/>
     </ToolBar>
   </top>
   <center>

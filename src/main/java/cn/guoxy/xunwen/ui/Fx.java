@@ -52,12 +52,22 @@ public final class Fx {
   }
 
   public static void alert(String msg) {
-    new Alert(Alert.AlertType.INFORMATION, msg).showAndWait();
+    alert("寻文", msg);
+  }
+
+  /** 带具体标题的信息弹窗（无重复 header，标题可区分来源流程）。 */
+  public static void alert(String title, String msg) {
+    Alert a = new Alert(Alert.AlertType.INFORMATION, msg);
+    a.setTitle(title);
+    a.setHeaderText(null);
+    a.showAndWait();
   }
 
   public static void error(String msg, Throwable t) {
     LOG.error(msg, t); // 弹窗之外留档：完整堆栈在 ~/.xunwen/logs/xunwen.log
-    Alert a = new Alert(Alert.AlertType.ERROR, msg + "\n" + String.valueOf(t));
+    Alert a = new Alert(Alert.AlertType.ERROR, String.valueOf(t));
+    a.setTitle(msg);
+    a.setHeaderText(msg);
     a.showAndWait();
   }
 
