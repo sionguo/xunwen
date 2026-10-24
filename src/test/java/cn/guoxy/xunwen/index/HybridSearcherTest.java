@@ -29,6 +29,7 @@ class HybridSearcherTest {
       assertFalse(hits.isEmpty());
       assertEquals("仓库A", hits.getFirst().repoName());
       assertEquals("x.txt", hits.getFirst().path());
+      assertEquals("INDEXED", hits.getFirst().status()); // 结果带状态（UI 展示用）
       assertTrue(hits.getFirst().highlight().contains("<"));
       assertTrue(hits.stream().anyMatch(h -> h.repoName().equals("仓库B"))); // 两仓都返回
     }

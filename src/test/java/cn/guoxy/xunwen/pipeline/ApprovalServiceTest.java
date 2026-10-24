@@ -7,6 +7,7 @@ import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
+import cn.guoxy.xunwen.move.OperationLog;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -136,5 +137,109 @@ class ApprovalServiceTest {
       assertEquals("UNKNOWN", idx.findByPath("待分类/a.txt").orElseThrow().status());
     }
     assertTrue(CategoryTree.load(RepoPaths.categoriesYaml(root)).find("工作文档").isEmpty());
+  }
+
+  @Test
+  void removeSecondLevelCategoryKeepsTopLevel(@TempDir Path root) throws Exception {
+    // 回归：删除「一级/二级」曾误删整个一级子树
+    new CategoryTree(
+            List.of(
+                new Category(
+                    "工作文档",
+                    "",
+                    List.of(new Category("报告", "", List.of()), new Category("纪要", "", List.of())))))
+        .save(RepoPaths.categoriesYaml(root));
+    Path dir = Files.createDirectories(root.resolve("工作文档/报告"));
+    Path f = dir.resolve("a.txt");
+    Files.writeString(f, "内容");
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+      idx.upsert(
+          new Doc(
+              "工作文档/报告/a.txt",
+              "a.txt",
+              "txt",
+              "h",
+              1L,
+              2L,
+              "INDEXED",
+              "工作文档/报告",
+              "内容",
+              new float[] {1, 0, 0, 0}));
+    }
+    LlmClient unknown = msgs -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
+
+    int n =
+        new ApprovalService(root, CFG, unknown, EX)
+            .removeCategory(CategoryTree.load(RepoPaths.categoriesYaml(root)), "工作文档/报告");
+
+    assertEquals(1, n); // 只有「报告」下的文件被移回待分类
+    var updated = CategoryTree.load(RepoPaths.categoriesYaml(root));
+    assertTrue(updated.find("工作文档").isPresent()); // 一级保留
+    assertTrue(updated.find("工作文档/纪要").isPresent()); // 兄弟二级保留
+    assertTrue(updated.find("工作文档/报告").isEmpty()); // 目标二级已删
+    assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("a.txt")));
+    assertFalse(Files.exists(root.resolve("工作文档/报告")));
+  }
+
+  @Test
+  void approveBatchMovesAllFilesInSingleSession(@TempDir Path root) throws Exception {
+    new CategoryTree(List.of(new Category("工作文档", "", List.of())))
+        .save(RepoPaths.categoriesYaml(root));
+    Path pending = Files.createDirectories(RepoPaths.pendingDir(root));
+    Path a = pending.resolve("甲.txt");
+    Path b = pending.resolve("乙.txt");
+    Files.writeString(a, "内容甲");
+    Files.writeString(b, "内容乙");
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+      idx.upsert(
+          new Doc(
+              "待分类/甲.txt",
+              "甲.txt",
+              "txt",
+              "h",
+              1L,
+              2L,
+              "PENDING",
+              "",
+              "内容甲",
+              new float[] {1, 0, 0, 0}));
+      idx.upsert(
+          new Doc(
+              "待分类/乙.txt",
+              "乙.txt",
+              "txt",
+              "h",
+              1L,
+              2L,
+              "PENDING",
+              "",
+              "内容乙",
+              new float[] {1, 0, 0, 0}));
+    }
+
+    int n =
+        new ApprovalService(root, CFG, HIGH_LLM, EX)
+            .approveBatch(
+                List.of(
+                    new ApprovalService.PendingApproval(a, "工作文档"),
+                    new ApprovalService.PendingApproval(b, "工作文档")));
+
+    assertEquals(2, n);
+    assertTrue(Files.exists(root.resolve("工作文档/甲.txt")));
+    assertTrue(Files.exists(root.resolve("工作文档/乙.txt")));
+    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+      assertEquals("INDEXED", idx.findByPath("工作文档/甲.txt").orElseThrow().status());
+      assertEquals("工作文档", idx.findByPath("工作文档/甲.txt").orElseThrow().candidatePath());
+      assertTrue(idx.findByPath("待分类/乙.txt").isEmpty());
+    }
+    assertEquals(
+        2, new OperationLog(RepoPaths.operationsJsonl(root)).batch(logBatchId(root)).size());
+  }
+
+  /** 批量归位共用一个批次号：从日志取 approve- 开头批次的条数验证。 */
+  private String logBatchId(Path root) throws Exception {
+    var batches = new RollbackService(root).batches();
+    assertEquals(1, batches.size()); // 两笔移动同批次
+    return batches.getFirst().batchId();
   }
 }

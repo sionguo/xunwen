@@ -2,7 +2,7 @@ package cn.guoxy.xunwen.classify;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import cn.guoxy.xunwen.classify.Classifier.Outcome;
+import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
@@ -28,8 +28,10 @@ class CategoryProposerTest {
     };
   }
 
-  private static Outcome unknown(String proposed) {
-    return new Outcome(Action.UNKNOWN, "", 0.1, proposed, "理由");
+  /** 待审页读出的 UNKNOWN 文档：提议/理由已在入库时写入索引。 */
+  private static StoredDoc unknown(String proposed) {
+    return new StoredDoc(
+        "待分类/" + proposed + ".txt", proposed + ".txt", "", "UNKNOWN", "内容", proposed, "理由", 0.1);
   }
 
   @Test
@@ -42,6 +44,7 @@ class CategoryProposerTest {
     var out = proposer.aggregate(List.of(unknown("发票凭证"), unknown("发票凭证")), tree);
     assertEquals(1, out.size());
     assertEquals(2, out.getFirst().fileCount());
+    assertEquals(2, out.getFirst().files().size()); // 关联文件随组携带
   }
 
   @Test
@@ -66,5 +69,6 @@ class CategoryProposerTest {
     assertEquals(1, out.size());
     assertEquals("发票凭证", out.getFirst().name());
     assertEquals(2, out.getFirst().fileCount());
+    assertEquals(2, out.getFirst().files().size()); // 聚合后两个文件都在提议下
   }
 }

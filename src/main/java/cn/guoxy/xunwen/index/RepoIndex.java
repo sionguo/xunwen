@@ -3,8 +3,11 @@ package cn.guoxy.xunwen.index;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.lucene.analysis.cn.smart.SmartChineseAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field.Store;
@@ -40,6 +43,10 @@ public final class RepoIndex implements AutoCloseable {
   public static final String F_CATEGORY = "category";
   public static final String F_CONTENT = "content";
   public static final String F_VEC = "vec";
+  public static final String F_PROPOSED = "proposed";
+  public static final String F_REASON = "reason";
+  public static final String F_CONFIDENCE = "confidence";
+  public static final String F_CANDIDATE = "candidate";
 
   private final FSDirectory dir;
   private final IndexWriter writer;
@@ -67,6 +74,10 @@ public final class RepoIndex implements AutoCloseable {
     doc.add(new StringField(F_STATUS, d.status(), Store.YES));
     doc.add(new StringField(F_CATEGORY, d.categoryPath(), Store.YES));
     doc.add(new TextField(F_CONTENT, d.content(), Store.YES));
+    doc.add(new StringField(F_PROPOSED, d.proposed(), Store.YES));
+    doc.add(new StringField(F_REASON, d.reason(), Store.YES));
+    doc.add(new StoredField(F_CONFIDENCE, d.confidence()));
+    doc.add(new StringField(F_CANDIDATE, d.candidatePath(), Store.YES));
     doc.add(
         new KnnFloatVectorField(
             F_VEC, d.vector(), org.apache.lucene.index.VectorSimilarityFunction.COSINE));
@@ -119,18 +130,28 @@ public final class RepoIndex implements AutoCloseable {
               .search(MatchAllDocsQuery.INSTANCE, Math.max(1, reader.numDocs()));
       List<StoredDoc> out = new ArrayList<>();
       for (ScoreDoc hit : all.scoreDocs) {
-        Document d = reader.storedFields().document(hit.doc);
-        out.add(
-            new StoredDoc(
-                d.get(F_PATH),
-                d.get(F_NAME),
-                d.get(F_CATEGORY),
-                d.get(F_STATUS),
-                d.get(F_CONTENT)));
+        out.add(toStored(reader.storedFields().document(hit.doc)));
       }
       return out;
     } catch (IndexNotFoundException emptyIndex) {
       return List.of(); // 全新索引尚无 segments 文件：空结果
+    }
+  }
+
+  /** 状态分布统计（总览页）：status → 数量，保持首次出现顺序。 */
+  public Map<String, Long> countByStatus() throws IOException {
+    try (IndexReader reader = reader()) {
+      TopDocs all =
+          new IndexSearcher(reader)
+              .search(MatchAllDocsQuery.INSTANCE, Math.max(1, reader.numDocs()));
+      Map<String, Long> out = new LinkedHashMap<>();
+      for (ScoreDoc hit : all.scoreDocs) {
+        String s = reader.storedFields().document(hit.doc, Set.of(F_STATUS)).get(F_STATUS);
+        out.merge(s == null ? "" : s, 1L, Long::sum);
+      }
+      return out;
+    } catch (IndexNotFoundException emptyIndex) {
+      return new LinkedHashMap<>(); // 全新索引尚无 segments 文件：空统计
     }
   }
 
@@ -151,14 +172,7 @@ public final class RepoIndex implements AutoCloseable {
     try (IndexReader reader = reader()) {
       List<StoredDoc> out = new ArrayList<>();
       for (ScoreDoc hit : hits) {
-        Document d = reader.storedFields().document(hit.doc);
-        out.add(
-            new StoredDoc(
-                d.get(F_PATH),
-                d.get(F_NAME),
-                d.get(F_CATEGORY),
-                d.get(F_STATUS),
-                d.get(F_CONTENT)));
+        out.add(toStored(reader.storedFields().document(hit.doc)));
       }
       return out;
     } catch (IndexNotFoundException emptyIndex) {
@@ -166,6 +180,20 @@ public final class RepoIndex implements AutoCloseable {
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  private static StoredDoc toStored(Document d) {
+    var conf = d.getField(F_CONFIDENCE);
+    return new StoredDoc(
+        d.get(F_PATH),
+        d.get(F_NAME),
+        d.get(F_CATEGORY),
+        d.get(F_STATUS),
+        d.get(F_CONTENT),
+        d.get(F_PROPOSED),
+        d.get(F_REASON),
+        conf == null ? 0.0 : conf.numericValue().doubleValue(), // 老索引无该字段
+        d.get(F_CANDIDATE));
   }
 
   private TopDocs search(Query q, int k) throws IOException {

@@ -22,6 +22,7 @@ public final class HybridSearcher {
       String path,
       String name,
       String categoryPath,
+      String status,
       String highlight,
       double score) {}
 
@@ -31,7 +32,13 @@ public final class HybridSearcher {
   private HybridSearcher() {}
 
   private record Acc(
-      double score, String repo, String path, String name, String category, String content) {}
+      double score,
+      String repo,
+      String path,
+      String name,
+      String category,
+      String status,
+      String content) {}
 
   public static List<Hit> search(
       LinkedHashMap<String, RepoIndex> indices, String query, float[] queryVec, int topK) {
@@ -73,7 +80,7 @@ public final class HybridSearcher {
       List<Hit> out = new ArrayList<>();
       for (Acc a : sorted) {
         String hl = highlight(analyzer, kwQueries.get(a.repo()), a.content());
-        out.add(new Hit(a.repo(), a.path(), a.name(), a.category(), hl, a.score()));
+        out.add(new Hit(a.repo(), a.path(), a.name(), a.category(), a.status(), hl, a.score()));
       }
       return out;
     } catch (Exception e) {
@@ -95,7 +102,9 @@ public final class HybridSearcher {
     double inc = 1.0 / (RRF_K + rank);
     Acc old = acc.get(key);
     if (old == null) {
-      acc.put(key, new Acc(inc, repoName, d.path(), d.name(), d.categoryPath(), d.content()));
+      acc.put(
+          key,
+          new Acc(inc, repoName, d.path(), d.name(), d.categoryPath(), d.status(), d.content()));
     } else {
       acc.put(
           key,
@@ -105,6 +114,7 @@ public final class HybridSearcher {
               old.path(),
               old.name(),
               old.category(),
+              old.status(),
               old.content()));
     }
   }

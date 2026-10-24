@@ -32,38 +32,73 @@ public final class ApprovalService {
     this.extractor = extractor;
   }
 
+  /** 批量人工归位项：待审文件 → 目标类别。 */
+  public record PendingApproval(Path file, String categoryPath) {}
+
   /** 待审文件人工归位：移动 → 记日志 → 索引更新为 INDEXED。返回批次号。 */
   public String approve(Path pendingFile, String categoryPath) throws IOException {
     String batchId = "approve-" + System.currentTimeMillis();
-    FileMover mover = new FileMover(repoRoot);
-    OperationLog log = new OperationLog(RepoPaths.operationsJsonl(repoRoot));
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
-      String oldRel =
-          FileProcessor.posix(repoRoot.relativize(pendingFile.toAbsolutePath().normalize()));
-      StoredDoc old = index.findByPath(oldRel).orElse(null);
-      FileMover.MoveOutcome moved = mover.move(pendingFile, repoRoot.resolve(categoryPath));
-      log.append(
-          new OperationLog.Op(
-              batchId,
-              System.currentTimeMillis(),
-              "MOVE",
-              pendingFile.toString(),
-              moved.dest().toString()));
-      index.deleteByPath(oldRel);
-      index.upsert(
-          new Doc(
-              FileProcessor.posix(repoRoot.relativize(moved.dest())),
-              moved.dest().getFileName().toString(),
-              FileProcessor.ext(moved.dest().getFileName().toString()),
-              moved.hash(),
-              Files.getLastModifiedTime(moved.dest()).toMillis(),
-              Files.size(moved.dest()),
-              "INDEXED",
-              categoryPath,
-              old == null ? "" : old.content(),
-              neutralVector()));
+      approveInto(
+          index,
+          new FileMover(repoRoot),
+          new OperationLog(RepoPaths.operationsJsonl(repoRoot)),
+          batchId,
+          new PendingApproval(pendingFile, categoryPath));
     }
     return batchId;
+  }
+
+  /** 批量人工归位：单个索引/日志会话内完成全部移动（N 文件不再开关 N 次索引）。 返回成功归位数。 */
+  public int approveBatch(List<PendingApproval> items) throws IOException {
+    String batchId = "approve-" + System.currentTimeMillis();
+    FileMover mover = new FileMover(repoRoot);
+    OperationLog log = new OperationLog(RepoPaths.operationsJsonl(repoRoot));
+    int count = 0;
+    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+      for (PendingApproval item : items) {
+        if (approveInto(index, mover, log, batchId, item)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  private boolean approveInto(
+      RepoIndex index, FileMover mover, OperationLog log, String batchId, PendingApproval item)
+      throws IOException {
+    Path pendingFile = item.file();
+    String categoryPath = item.categoryPath();
+    String oldRel =
+        FileProcessor.posix(repoRoot.relativize(pendingFile.toAbsolutePath().normalize()));
+    StoredDoc old = index.findByPath(oldRel).orElse(null);
+    FileMover.MoveOutcome moved = mover.move(pendingFile, repoRoot.resolve(categoryPath));
+    log.append(
+        new OperationLog.Op(
+            batchId,
+            System.currentTimeMillis(),
+            "MOVE",
+            pendingFile.toString(),
+            moved.dest().toString()));
+    index.deleteByPath(oldRel);
+    index.upsert(
+        new Doc(
+            FileProcessor.posix(repoRoot.relativize(moved.dest())),
+            moved.dest().getFileName().toString(),
+            FileProcessor.ext(moved.dest().getFileName().toString()),
+            moved.hash(),
+            Files.getLastModifiedTime(moved.dest()).toMillis(),
+            Files.size(moved.dest()),
+            "INDEXED",
+            categoryPath,
+            old == null ? "" : old.content(),
+            neutralVector(),
+            old == null ? "" : old.proposed(),
+            old == null ? "" : old.reason(),
+            old == null ? 0.0 : old.confidence(),
+            categoryPath)); // 候选即最终归类
+    return true;
   }
 
   /** 新类别入树（顶层或挂 parentName 下）→ save → 全部 UNKNOWN 重分类归位。返回更新后的树。 */
@@ -90,14 +125,35 @@ public final class ApprovalService {
     return updated;
   }
 
-  /** 删除类别（含子树）→ save → 其下文件物理移回待分类并重分类。返回处理文件数。 */
+  /** 删除类别 → save → 其下文件物理移回待分类并重分类。返回处理文件数。 路径可以是「一级」（删整个子树）或「一级/二级」（只删该二级，保留一级与其他子类）。 */
   public int removeCategory(CategoryTree tree, String categoryPath) throws IOException {
+    String[] parts = categoryPath.split("/");
+    String top = parts[0];
     List<Category> roots = new ArrayList<>();
-    String top = categoryPath.split("/")[0];
+    boolean removed = false;
     for (Category r : tree.roots()) {
       if (!r.name().equals(top)) {
         roots.add(r);
+        continue;
       }
+      if (parts.length == 1) {
+        removed = true; // 删一级：整个子树出树
+        continue;
+      }
+      // 删二级：仅从该一级的 children 中摘除目标
+      String child = parts[1];
+      List<Category> kids = new ArrayList<>();
+      for (Category k : r.children()) {
+        if (!k.name().equals(child)) {
+          kids.add(k);
+        } else {
+          removed = true;
+        }
+      }
+      roots.add(new Category(r.name(), r.description(), kids));
+    }
+    if (!removed) {
+      throw new IllegalArgumentException("类别不存在：" + categoryPath);
     }
     CategoryTree updated = new CategoryTree(roots);
     updated.save(RepoPaths.categoriesYaml(repoRoot));

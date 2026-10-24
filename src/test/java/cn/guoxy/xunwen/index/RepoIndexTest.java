@@ -84,4 +84,75 @@ class RepoIndexTest {
       assertEquals(2, idx.all().size());
     }
   }
+
+  @Test
+  void classificationMetadataRoundTrips(@TempDir Path dir) throws Exception {
+    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+      idx.upsert(
+          new Doc(
+              "p.pdf",
+              "p.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              "UNKNOWN",
+              "",
+              "内容",
+              new float[] {1, 0, 0, 0},
+              "发票凭证",
+              "餐饮发票无法归入现有类别",
+              0.42,
+              "财务税务"));
+      StoredDoc d = idx.findByPath("p.pdf").orElseThrow();
+      assertEquals("发票凭证", d.proposed());
+      assertEquals("餐饮发票无法归入现有类别", d.reason());
+      assertEquals(0.42, d.confidence(), 1e-9);
+      assertEquals("财务税务", d.candidatePath()); // 候选类别往返（待审页预选）
+      // 老条目（无元数据字段）读出时取默认值
+      idx.upsert(
+          new Doc(
+              "q.pdf", "q.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {0, 1, 0, 0}));
+      StoredDoc old = idx.findByPath("q.pdf").orElseThrow();
+      assertEquals("", old.proposed());
+      assertEquals(0.0, old.confidence());
+      assertEquals("", old.candidatePath());
+    }
+  }
+
+  @Test
+  void countByStatusAggregates(@TempDir Path dir) throws Exception {
+    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+      idx.upsert(
+          new Doc(
+              "p.pdf", "p.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {1, 0, 0, 0}));
+      idx.upsert(
+          new Doc(
+              "q.pdf",
+              "q.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              "INDEXED",
+              "工作文档",
+              "c",
+              new float[] {0, 1, 0, 0}));
+      idx.upsert(
+          new Doc(
+              "r.pdf",
+              "r.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              "INDEXED",
+              "其他",
+              "c",
+              new float[] {0, 0, 1, 0}));
+      var counts = idx.countByStatus();
+      assertEquals(2L, counts.get("INDEXED"));
+      assertEquals(1L, counts.get("PENDING"));
+    }
+  }
 }

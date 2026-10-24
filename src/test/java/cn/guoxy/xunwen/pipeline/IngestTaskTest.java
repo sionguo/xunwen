@@ -70,8 +70,8 @@ class IngestTaskTest {
     task.ingest(List.of(c));
     Files.delete(root.resolve("工作文档/将删除.txt")); // ingest 已移动，删移动后的已索引文件
 
-    int processed = task.sync();
-    assertTrue(processed >= 2); // 积压入库 + 删除清理（修改的文件被重处理也算）
+    var stats = task.sync();
+    assertTrue(stats.touched() >= 2); // 积压入库 + 删除清理（修改的文件被重处理也算）
     assertTrue(Files.exists(root.resolve("工作文档/积压文件.txt")));
     try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
       assertTrue(idx.findByPath("工作文档/积压文件.txt").isPresent());
@@ -115,8 +115,8 @@ class IngestTaskTest {
     Path f = root.resolve("未分类.txt");
     Files.writeString(f, "内容");
     var task = new IngestTask(root, CFG, fakeLlm(), fakeExtractor());
-    assertEquals(0, task.sync());
-    assertTrue(task.ingest(List.of(f)).isEmpty());
+    assertEquals(0, task.sync().touched());
+    assertTrue(task.ingest(List.of(f)).moved().isEmpty());
     assertTrue(Files.exists(f)); // 文件留在原地未被移动
   }
 
@@ -141,7 +141,7 @@ class IngestTaskTest {
       assertEquals("UNKNOWN", idx.findByPath("待分类/遗留文件.txt").orElseThrow().status());
     }
 
-    assertEquals(0, task.sync()); // 第二轮：已入库，不再重复处理
+    assertEquals(0, task.sync().touched()); // 第二轮：已入库，不再重复处理
     assertEquals(1, llmCalls[0]); // 只调用过一次 LLM，无自重复循环
   }
 

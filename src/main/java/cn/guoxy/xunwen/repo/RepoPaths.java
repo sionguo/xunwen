@@ -17,6 +17,11 @@ public final class RepoPaths {
     return xunwenDir(repoRoot).resolve("categories.yaml");
   }
 
+  /** 未生效的类别树提案（持久化：应用重启后可恢复继续编辑）。 */
+  public static Path proposalYaml(Path repoRoot) {
+    return xunwenDir(repoRoot).resolve("proposal.yaml");
+  }
+
   public static Path operationsJsonl(Path repoRoot) {
     return xunwenDir(repoRoot).resolve("operations.jsonl");
   }

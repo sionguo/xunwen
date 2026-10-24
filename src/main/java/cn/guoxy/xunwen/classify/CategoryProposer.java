@@ -1,6 +1,6 @@
 package cn.guoxy.xunwen.classify;
 
-import cn.guoxy.xunwen.classify.Classifier.Outcome;
+import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import java.util.ArrayList;
@@ -8,8 +8,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/** 新类别提议聚合（FR-6）：输入待审页读出的 UNKNOWN 文档（提议已在入库时写入索引， 无需重新调 LLM），同名合并 → 与现有类别相似拒绝 → 提议间相似聚合。 */
 public final class CategoryProposer {
-  public record Proposal(String name, String reason, int fileCount) {}
+  /** 提议：名称、理由、关联文件数与文件相对路径（批准后可定位归位）。 */
+  public record Proposal(String name, String reason, int fileCount, List<String> files) {
+
+    public Proposal {
+      files = files == null ? List.of() : List.copyOf(files);
+    }
+  }
 
   static final double SIMILAR_THRESHOLD = 0.85;
 
@@ -19,12 +26,12 @@ public final class CategoryProposer {
     this.embed = embed;
   }
 
-  public List<Proposal> aggregate(List<Outcome> unknownOutcomes, CategoryTree tree) {
-    // 1. 同名合并
-    Map<String, List<Outcome>> byName = new LinkedHashMap<>();
-    for (Outcome o : unknownOutcomes) {
-      if (!o.proposedCategory().isBlank()) {
-        byName.computeIfAbsent(o.proposedCategory(), _ -> new ArrayList<>()).add(o);
+  public List<Proposal> aggregate(List<StoredDoc> unknownDocs, CategoryTree tree) {
+    // 1. 同名合并（关联文件路径随组携带）
+    Map<String, List<StoredDoc>> byName = new LinkedHashMap<>();
+    for (StoredDoc d : unknownDocs) {
+      if (!d.proposed().isBlank()) {
+        byName.computeIfAbsent(d.proposed(), _ -> new ArrayList<>()).add(d);
       }
     }
     // 2. 相似拒绝
@@ -40,11 +47,13 @@ public final class CategoryProposer {
       if (similarToExisting) {
         continue;
       }
+      List<StoredDoc> docs = entry.getValue();
       kept.add(
           new Proposal(
               entry.getKey(),
-              entry.getValue().getFirst().proposalReason(),
-              entry.getValue().size()));
+              docs.getFirst().reason(),
+              docs.size(),
+              docs.stream().map(StoredDoc::path).toList()));
     }
     // 3. 提议间聚合（贪心：与已保留项相似则并入）
     List<Proposal> merged = new ArrayList<>();
@@ -55,7 +64,9 @@ public final class CategoryProposer {
       for (int i = 0; i < merged.size(); i++) {
         if (cosine(vec, mergedVecs.get(i)) > SIMILAR_THRESHOLD) {
           Proposal m = merged.get(i);
-          merged.set(i, new Proposal(m.name(), m.reason(), m.fileCount() + p.fileCount()));
+          List<String> files = new ArrayList<>(m.files());
+          files.addAll(p.files());
+          merged.set(i, new Proposal(m.name(), m.reason(), m.fileCount() + p.fileCount(), files));
           mergedIntoExisting = true;
           break;
         }

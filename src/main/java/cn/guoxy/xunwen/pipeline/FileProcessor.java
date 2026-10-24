@@ -20,10 +20,28 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** 单文件处理：提取 → 分类 → 置信度分流移动 → 写日志 → 写索引（FR-1/2/3）。 */
+/**
+ * 单文件处理，两阶段管道（FR-1/2/3）：
+ *
+ * <ul>
+ *   <li>{@link #prepare}：提取 + 分类 + 向量（耗时在解析与 LLM 调用，无写操作，可并发）；
+ *   <li>{@link #commit}：移动 + 记日志 + 入库（独占 RepoIndex 单写者，串行）。
+ * </ul>
+ *
+ * 串行 {@link #process} = prepare + commit，语义不变。
+ */
 public final class FileProcessor {
   private static final Logger LOG = LoggerFactory.getLogger(FileProcessor.class);
   private static final int EMBED_CHARS = 4000;
+
+  /** 阶段一产物：分类完成、待落库。 */
+  public record Prepared(Path src, String rawText, float[] fileVec, Classifier.Outcome outcome) {}
+
+  /**
+   * 单文件处置结果。dest 非空 = 成功分流（status 为索引状态 INDEXED/PENDING/UNKNOWN）； dest 为空时 status 说明原因：
+   * ALREADY_INDEXED（中断续跑）/ DUPLICATE（重复副本留在原处）/ FAILED（提取或移动失败，下轮重试）。
+   */
+  public record Result(Path dest, String status) {}
 
   private final Path repoRoot;
   private final GlobalConfig cfg;
@@ -32,7 +50,8 @@ public final class FileProcessor {
   private final ContentExtractor extractor;
   private final FileMover mover;
   private final OperationLog log;
-  // 类目向量表按 tree 实例缓存：树变更（批准/删除类别）产生新实例即自动重建
+  // 类目向量表按 tree 实例缓存：树变更（批准/删除类别）产生新实例即自动重建；
+  // warmVectors 预构建后并发 prepare 只读，无竞态
   private CategoryTree vectorTree;
   private CategoryVectors vectors;
 
@@ -59,44 +78,70 @@ public final class FileProcessor {
     this.log = new OperationLog(RepoPaths.operationsJsonl(this.repoRoot));
   }
 
-  /** 返回实际落点（含 RENAMED 改名后路径）；已入库/重复跳过/失败返回 null。 */
-  public Path process(Path file, CategoryTree tree, String batchId, RepoIndex index) {
-    String name = file.getFileName().toString();
-    Path src = file.toAbsolutePath().normalize();
-    String relPath = posix(repoRoot.relativize(src));
-    try {
-      if (index.findByPath(relPath).isPresent()) {
-        return null; // 已入库（中断续跑）
-      }
-      ContentExtractor.Extracted ex = extractor.extract(file);
-      // 文件向量提前算：融合钳制与索引存储共用；embed 失败 → null（钳制旁路，索引用中性兜底）
-      String rawText = ex.text();
-      String embedText =
-          rawText.length() > EMBED_CHARS ? rawText.substring(0, EMBED_CHARS) : rawText;
-      float[] fileVec = embedOrNull(embedText);
-      Classifier.Outcome outcome =
-          classifier.classify(name, ex.text(), ex.hasTextLayer(), tree, vectorsFor(tree), fileVec);
+  /** 预构建类目向量表：并发 prepare 前调用一次，消除惰性初始化竞态。 */
+  public void warmVectors(CategoryTree tree) {
+    vectorsFor(tree);
+  }
 
+  /** 阶段一：提取 + 分类；已入库（中断续跑）返回 null。只读索引，可并发。 */
+  public Prepared prepare(Path file, CategoryTree tree, RepoIndex index) throws IOException {
+    return prepare(file, tree, index, false);
+  }
+
+  /** 阶段一：提取 + 分类。full=true 为全量重排：跳过「已入库跳过」检查，已归档/待分类文件也重新分类 （结果不变则原地刷新索引，变了则移动）。 */
+  public Prepared prepare(Path file, CategoryTree tree, RepoIndex index, boolean full)
+      throws IOException {
+    Path src = file.toAbsolutePath().normalize();
+    if (!full && index.findByPath(posix(repoRoot.relativize(src))).isPresent()) {
+      return null;
+    }
+    ContentExtractor.Extracted ex = extractor.extract(file);
+    String rawText = ex.text();
+    String embedText = rawText.length() > EMBED_CHARS ? rawText.substring(0, EMBED_CHARS) : rawText;
+    float[] fileVec = embedOrNull(embedText);
+    Classifier.Outcome outcome =
+        classifier.classify(
+            src.getFileName().toString(),
+            ex.text(),
+            ex.hasTextLayer(),
+            tree,
+            vectorsFor(tree),
+            fileVec);
+    return new Prepared(src, rawText, fileVec, outcome);
+  }
+
+  /** 阶段二：移动 + 记日志 + 入库；返回落点，重复/失败时 dest 为 null 且 status 说明原因。 */
+  public Result commit(Prepared p, String batchId, RepoIndex index) {
+    if (p == null) {
+      return new Result(null, "ALREADY_INDEXED");
+    }
+    String name = p.src().getFileName().toString();
+    try {
+      Classifier.Outcome outcome = p.outcome();
       Path destDir =
           outcome.action() == Action.AUTO_MOVE
               ? repoRoot.resolve(outcome.categoryPath())
               : RepoPaths.pendingDir(repoRoot);
       Path actual;
       String hash;
-      if (destDir.equals(src.getParent())) {
+      if (destDir.equals(p.src().getParent())) {
         // 已在目标目录（如待分类内未入库文件）：跳过移动与日志直接入库，消除 dest==src 自重复循环
-        actual = src;
+        actual = p.src();
         hash = "";
       } else {
-        FileMover.MoveOutcome moved = mover.move(src, destDir);
+        FileMover.MoveOutcome moved = mover.move(p.src(), destDir);
         if (moved.result() == FileMover.MoveResult.DUPLICATE_SKIPPED) {
-          return null; // 重复副本留在原处（FR-5），不入索引
+          return new Result(null, "DUPLICATE"); // 重复副本留在原处（FR-5），不入索引
         }
         actual = moved.dest();
         hash = moved.hash();
         log.append(
             new OperationLog.Op(
-                batchId, System.currentTimeMillis(), "MOVE", file.toString(), actual.toString()));
+                batchId,
+                System.currentTimeMillis(),
+                "MOVE",
+                p.src().toString(),
+                actual.toString()));
       }
 
       String status =
@@ -105,6 +150,13 @@ public final class FileProcessor {
             case PENDING -> "PENDING";
             case UNKNOWN -> "UNKNOWN";
           };
+      // 已入库文件的重新归位（全量重排）：移动后旧位置条目需删除，否则成为孤儿
+      // （增量流程文件未入库，delete 为无害 no-op）
+      String oldRel = posix(repoRoot.relativize(p.src()));
+      String newRel = posix(repoRoot.relativize(actual));
+      if (!oldRel.equals(newRel)) {
+        index.deleteByPath(oldRel);
+      }
       index.upsert(
           new Doc(
               posix(repoRoot.relativize(actual)),
@@ -115,14 +167,24 @@ public final class FileProcessor {
               Files.size(actual),
               status,
               outcome.action() == Action.AUTO_MOVE ? outcome.categoryPath() : "",
-              rawText,
-              fileVec == null ? neutralVector() : fileVec));
-      return actual;
+              p.rawText(),
+              p.fileVec() == null ? neutralVector() : p.fileVec(),
+              outcome.proposedCategory(),
+              outcome.proposalReason(),
+              outcome.confidence(),
+              outcome.categoryPath())); // 候选类别：待审页预选用（无论是否自动归档）
+      return new Result(actual, status);
     } catch (IOException | IllegalStateException e) {
       // 移动失败（Windows 占用等）或 LLM 传输失败：本批跳过，下轮再处理，不让整批任务崩
-      LOG.warn("跳过无法处理的文件: {}", relPath, e);
+      LOG.warn("跳过无法处理的文件: {}", p.src(), e);
     }
-    return null;
+    return new Result(null, "FAILED");
+  }
+
+  /** 串行完整处理：prepare + commit。 */
+  public Result process(Path file, CategoryTree tree, String batchId, RepoIndex index)
+      throws IOException {
+    return commit(prepare(file, tree, index), batchId, index);
   }
 
   /** 文件向量；embed 失败返回 null（向量路旁路），索引入库时再以中性向量兜底。 */
