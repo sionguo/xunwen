@@ -34,6 +34,8 @@ public abstract class ViewTestBase extends ApplicationTest {
                 loader.setController(controller);
                 Parent root = loader.load();
                 TestApp.stage.getScene().setRoot(root);
+                root.applyCss(); // 立即创建 Control 皮肤：Windows CI 渲染循环不主动 pulse，
+                root.layout(); // 皮肤不建则 SplitPane 等 Control 的内容不进 children，byId 会扑空
                 rootNode(root); // robot 查询域刷新到新场景（默认缓存 launch 时的旧节点）
                 return null;
               } catch (IOException e) {
