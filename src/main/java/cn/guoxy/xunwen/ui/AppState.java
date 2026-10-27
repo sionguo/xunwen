@@ -8,6 +8,8 @@ import cn.guoxy.xunwen.extract.OcrFallbackExtractor;
 import cn.guoxy.xunwen.llm.OpenAiCompatClient;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ListProperty;
@@ -56,6 +58,9 @@ public final class AppState {
   public void saveConfig(GlobalConfig c) throws IOException {
     configStore.save(c);
     config.set(c);
+    synchronized (queryVecCache) {
+      queryVecCache.clear(); // 模型/维度可能已变，查询向量全部失效
+    }
   }
 
   public void addRepo(Path p) throws IOException {
@@ -76,11 +81,53 @@ public final class AppState {
     return engineLock;
   }
 
+  /** 复用 LLM 客户端：配置对象未更换即复用；设置页保存新配置自动重建（saveConfig 换引用即可）。 */
+  private volatile OpenAiCompatClient llmClient;
+
+  private volatile GlobalConfig configOfClient; // llmClient 对应的配置快照（引用比较判定复用）
+
   public OpenAiCompatClient llm() {
     GlobalConfig c = config.get();
-    return new OpenAiCompatClient(
-        c.baseUrl(), c.embedBaseUrl(), c.apiKey(), c.chatModel(), c.embedModel());
+    if (llmClient == null || configOfClient != c) {
+      configOfClient = c;
+      llmClient =
+          new OpenAiCompatClient(
+              c.baseUrl(), c.embedBaseUrl(), c.apiKey(), c.chatModel(), c.embedModel());
+    }
+    return llmClient;
   }
+
+  /**
+   * 查询向量化（带 LRU 缓存，上限 128 条）：同一搜索词重复检索不再调 embedding 端点——首屏延迟的 主要外部项。embedding 失败返回
+   * null（调用方退关键词路），失败不缓存。
+   */
+  public float[] queryVector(String query) {
+    synchronized (queryVecCache) {
+      float[] hit = queryVecCache.get(query);
+      if (hit != null) {
+        return hit;
+      }
+    }
+    float[] vec;
+    try {
+      vec = llm().embed(query);
+    } catch (RuntimeException e) {
+      return null; // embedding 不可用：调用方退关键词路（不缓存失败）
+    }
+    synchronized (queryVecCache) {
+      queryVecCache.put(query, vec);
+    }
+    return vec;
+  }
+
+  /** 查询向量 LRU 缓存；saveConfig 时整体失效（模型/维度可能已变）。 */
+  private final Map<String, float[]> queryVecCache =
+      new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, float[]> eldest) {
+          return size() > 128;
+        }
+      };
 
   public ContentExtractor extractor() {
     return new OcrFallbackExtractor();
