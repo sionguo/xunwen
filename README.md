@@ -101,10 +101,12 @@ java packaging/IconGen.java packaging   # 重新生成应用图标
 
 ## Roadmap
 
+以下新功能待规划(TBD),优先级:RAG 问答 → 常驻托盘 → 音视频转写。
+
 - [ ] 重排语义拆分:增量重分类 vs 全量重排
 - [ ] RAG 问答(当前为纯检索)
 - [ ] 音视频转写、常驻托盘后台
 
 ## License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](LICENSE)。第三方组件许可见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
