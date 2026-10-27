@@ -13,8 +13,10 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -77,7 +79,8 @@ public final class IngestTask {
       allFiles.add(p);
     }
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
-      // 1. 索引有、文件系统无 → 清理；指纹不同 → 删旧记录待重处理
+      // 1. 索引有、文件系统无 → 清理；指纹不同 → 删旧记录待重处理；存活的路径记入已入库集合
+      Set<String> indexed = new HashSet<>();
       int cleaned = 0;
       for (FileInfo info : index.allFiles()) {
         long[] fp = fs.get(info.path());
@@ -86,14 +89,16 @@ public final class IngestTask {
           cleaned++;
         } else if (fp[0] != info.mtime() || fp[1] != info.size()) {
           index.deleteByPath(info.path()); // 下面的 process 会重新提取入库
+        } else {
+          indexed.add(info.path());
         }
       }
       stats.cleaned(cleaned);
 
-      // 2. 文件系统有、索引无 → 两阶段并发入库
+      // 2. 文件系统有、索引无 → 两阶段并发入库（已入库集合一次建表，不再逐文件开 reader 查询）
       List<Path> toProcess = new ArrayList<>();
       for (Path p : allFiles) {
-        if (index.findByPath(FileProcessor.posix(repoRoot.relativize(p))).isEmpty()) {
+        if (!indexed.contains(FileProcessor.posix(repoRoot.relativize(p)))) {
           toProcess.add(p);
         }
       }

@@ -155,4 +155,46 @@ class RepoIndexTest {
       assertEquals(1L, counts.get("PENDING"));
     }
   }
+
+  @Test
+  void uncommittedWritesVisibleToSameInstance(@TempDir Path dir) throws Exception {
+    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+      idx.upsert(doc("a.pdf", "a.pdf", "内容", new float[] {1, 0, 0, 0}));
+      idx.deleteByPath("a.pdf");
+      assertTrue(idx.findByPath("a.pdf").isEmpty()); // 同实例写后立即可读（NRT）
+    }
+  }
+
+  @Test
+  void closePersistsBatchCommits(@TempDir Path dir) throws Exception {
+    Path idxDir = dir.resolve("index");
+    try (RepoIndex idx = new RepoIndex(idxDir)) {
+      idx.upsert(doc("a.pdf", "a.pdf", "内容", new float[] {1, 0, 0, 0}));
+    } // close 即批次边界：整批一次 commit
+    try (RepoIndex reopen = new RepoIndex(idxDir)) {
+      assertTrue(reopen.findByPath("a.pdf").isPresent());
+    }
+  }
+
+  @Test
+  void readOnlyModeRejectsWrites(@TempDir Path dir) throws Exception {
+    try (RepoIndex idx = RepoIndex.openReadOnly(dir.resolve("index"))) {
+      assertThrows(
+          IllegalStateException.class,
+          () -> idx.upsert(doc("a.pdf", "a.pdf", "c", new float[] {1, 0, 0, 0})));
+      assertThrows(IllegalStateException.class, () -> idx.deleteByPath("a.pdf"));
+    }
+  }
+
+  @Test
+  void readOnlySearchWorksWhileWritableHoldsLock(@TempDir Path dir) throws Exception {
+    // 可写实例持有 Lucene 写锁且未提交变更（模拟批量任务进行中）；
+    // 只读实例可并发打开检索，看到的是已提交状态（此处为空索引）
+    try (RepoIndex writable = new RepoIndex(dir.resolve("index"))) {
+      writable.upsert(doc("1.pdf", "发票.pdf", "餐饮发票内容", new float[] {1, 0, 0, 0}));
+      try (RepoIndex ro = RepoIndex.openReadOnly(dir.resolve("index"))) {
+        assertEquals(0, ro.searchKeyword("发票", 10).length);
+      }
+    }
+  }
 }
