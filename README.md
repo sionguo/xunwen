@@ -102,7 +102,6 @@ java packaging/IconGen.java packaging   # 重新生成应用图标
 ## Roadmap
 
 - [ ] 重排语义拆分:增量重分类 vs 全量重排
-- [ ] 类别树提案落盘持久化
 - [ ] RAG 问答(当前为纯检索)
 - [ ] 音视频转写、常驻托盘后台
 

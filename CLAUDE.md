@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目
 
-xunwen(寻文)— 基于 Lucene 全文检索的 JavaFX 桌面应用。Java 25,JPMS 模块化(`module-info.java`)。UI 栈:JavaFX 27 + ControlsFX + Ikonli + AtlantaFX;日志 SLF4J + Logback;测试 JUnit 5。
+xunwen(寻文)— 基于 Lucene 全文检索的 JavaFX 桌面应用。Java 25,classpath 非模块化构建。UI 栈:JavaFX 27 + ControlsFX + Ikonli + AtlantaFX;日志 SLF4J + Logback;测试 JUnit 5。
 
 ## 常用命令
 
@@ -17,9 +17,9 @@ xunwen(寻文)— 基于 Lucene 全文检索的 JavaFX 桌面应用。Java 25,JP
 
 ## 架构约束
 
-- **JPMS**:引入新依赖时必须同时在 `src/main/java/module-info.java` 加 `requires`;新增包含 FXML controller 的包时需在 `module-info.java` 中 `opens` 给 `javafx.fxml`。
+- **非模块化**:classpath 构建,无 `module-info.java`(commit `3b8d8c5` 移除,决策见 `docs/adr/0002`);引入新依赖直接加 pom,不需要 requires/opens。
 - **格式**:Spotless 强制 google-java-format(GOOGLE 风格),版本钉在 1.33.0 — pom 配置与 `tools/` 下 hook 用的 jar 是同一个版本,改一边必须同步改另一边。
-- **入口**:`Launcher.main` → `Application.launch(XunwenApp.class)`,这是 JPMS 下启动 JavaFX 的标准模式;`javafx-maven-plugin` 的 mainClass 为 `cn.guoxy.xunwen.Launcher`。
+- **入口**:`Launcher.main` → `Application.launch(XunwenApp.class)`,与 JavaFX 解耦的启动类,供 jpackage classpath 启动;`javafx-maven-plugin` 的 mainClass 为 `cn.guoxy.xunwen.Launcher`。
 
 ## 打包发布
 
