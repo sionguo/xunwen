@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
@@ -18,6 +20,21 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** 查询向量缓存：同一查询词只打一次 embedding 端点；保存配置后缓存整体失效。 */
 class AppStateTest {
+
+  @Test
+  void sessionForReusesLlmAndRebuildsOnConfigChange(@TempDir Path dir) throws Exception {
+    AppState state = new AppState(dir.resolve("config.json"), dir.resolve("repos.json"));
+    state.load();
+    var s1 = state.sessionFor(dir.resolve("repo"));
+    var s2 = state.sessionFor(dir.resolve("repo"));
+    assertSame(s1.llm(), s2.llm()); // 同配置复用 LLM 客户端
+    assertSame(s1.extractor(), s2.extractor()); // extractor 应用级共享
+    // 保存新配置（换引用）→ 客户端自动失效重建
+    state.saveConfig(new GlobalConfig("http://localhost:9/v1", "", "k", "m", "e", 4, 0.85, 0.5, 2));
+    var s3 = state.sessionFor(dir.resolve("repo"));
+    assertNotSame(s1.llm(), s3.llm());
+    assertEquals(dir.resolve("repo").toAbsolutePath().normalize(), s3.repo());
+  }
 
   @Test
   void queryVectorCachesAndInvalidatesOnConfigSave(@TempDir Path dir) throws Exception {

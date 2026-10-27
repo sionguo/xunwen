@@ -50,7 +50,7 @@ final class RepoOpener {
     Fx.runEngine(
         state,
         () ->
-            new IngestTask(selected, state.config(), state.llm(), state.extractor())
+            new IngestTask(state.sessionFor(selected))
                 .sync((done, total, file) -> progress.update(done, total, file)),
         stats -> {
           progress.close();

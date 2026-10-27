@@ -52,7 +52,7 @@ public final class WatchServiceBinder implements AutoCloseable {
       }
       Fx.runEngine(
           state,
-          () -> new IngestTask(repo, state.config(), state.llm(), state.extractor()).ingest(stable),
+          () -> new IngestTask(state.sessionFor(repo)).ingest(stable),
           stats -> {
             for (MoveRecord r : stats.moved()) {
               watcher.ignorePrefix(r.to()); // 防回环：自己移动产生的 CREATE 不再处理

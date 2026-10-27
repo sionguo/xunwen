@@ -211,7 +211,7 @@ public class PendingController {
     Fx.runEngine(
         state,
         () -> {
-          new ApprovalService(repo, state.config(), state.llm(), state.extractor())
+          new ApprovalService(state.sessionFor(repo))
               .approve(repo.resolve(row.doc().path()), category);
           return null;
         },
@@ -240,7 +240,7 @@ public class PendingController {
     Fx.runEngine(
         state,
         () -> {
-          var service = new ApprovalService(repo, state.config(), state.llm(), state.extractor());
+          var service = new ApprovalService(state.sessionFor(repo));
           List<ApprovalService.PendingApproval> items = new ArrayList<>();
           for (Row r : ready) {
             items.add(
@@ -267,7 +267,7 @@ public class PendingController {
     Fx.runEngine(
         state,
         () ->
-            new ApprovalService(repo, state.config(), state.llm(), state.extractor())
+            new ApprovalService(state.sessionFor(repo))
                 .approveProposal(
                     CategoryTree.load(RepoPaths.categoriesYaml(repo)),
                     p.name(),

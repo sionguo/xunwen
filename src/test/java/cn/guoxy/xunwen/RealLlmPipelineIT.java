@@ -14,6 +14,7 @@ import cn.guoxy.xunwen.llm.OpenAiCompatClient;
 import cn.guoxy.xunwen.pipeline.ApprovalService;
 import cn.guoxy.xunwen.pipeline.BatchRunner;
 import cn.guoxy.xunwen.pipeline.IngestTask;
+import cn.guoxy.xunwen.pipeline.RepoSession;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -109,7 +110,9 @@ class RealLlmPipelineIT {
     tree.save(RepoPaths.categoriesYaml(root));
 
     // 2. 重排：文件进一级类别目录或待分类
-    var stats = new ReshuffleTask(root, CFG, llm, extractor).run(BatchRunner.Progress.noop());
+    var stats =
+        new ReshuffleTask(new RepoSession(root, CFG, llm, extractor))
+            .run(BatchRunner.Progress.noop());
     assertEquals(6, stats.touched(), "重排统计应覆盖全部文件：" + stats.summary());
     List<Path> after;
     try (var walk = Files.walk(root)) {
@@ -135,7 +138,7 @@ class RealLlmPipelineIT {
     // 4. 增量入库：新文件被处理（归位或待分类），索引有条目
     Path newcomer = root.resolve("数据中台建设规划.txt");
     Files.writeString(newcomer, "数据中台统一元数据与指标口径，沉淀数仓分层模型，向业务提供自助分析服务。".repeat(8));
-    new IngestTask(root, CFG, llm, extractor).ingest(List.of(newcomer));
+    new IngestTask(new RepoSession(root, CFG, llm, extractor)).ingest(List.of(newcomer));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var all = new java.util.ArrayList<StoredDoc>();
       all.addAll(idx.byStatus(FileStatus.INDEXED, 100));
@@ -151,7 +154,7 @@ class RealLlmPipelineIT {
     }
     if (!unknown.isEmpty()) {
       String fname = unknown.getFirst().name();
-      new ApprovalService(root, CFG, llm, extractor)
+      new ApprovalService(new RepoSession(root, CFG, llm, extractor))
           .approve(
               root.resolve(unknown.getFirst().path()),
               paths.stream().filter(p -> !"其他".equals(p)).findFirst().orElse("其他"));

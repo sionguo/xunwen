@@ -11,6 +11,7 @@ import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.pipeline.BatchRunner;
 import cn.guoxy.xunwen.pipeline.IngestTask;
+import cn.guoxy.xunwen.pipeline.RepoSession;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -67,7 +68,9 @@ class EndToEndSmokeTest {
     assertEquals(List.of("工作文档", "工作文档/报告", "其他"), tree.flattenPaths());
 
     // 3. 首次重排
-    var stats = new ReshuffleTask(root, cfg, llm, EXTRACTOR).run(BatchRunner.Progress.noop());
+    var stats =
+        new ReshuffleTask(new RepoSession(root, cfg, llm, EXTRACTOR))
+            .run(BatchRunner.Progress.noop());
     assertTrue(Files.exists(root.resolve("工作文档/季度报告.txt")));
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("发票.txt"))); // UNKNOWN → 待分类
     assertEquals(2, stats.indexed()); // 统计可见：两个高置信文件归档
@@ -76,7 +79,7 @@ class EndToEndSmokeTest {
     // 4. 增量入库
     Path newFile = root.resolve("新通知.txt");
     Files.writeString(newFile, "又一份通知");
-    new IngestTask(root, cfg, llm, EXTRACTOR).ingest(List.of(newFile));
+    new IngestTask(new RepoSession(root, cfg, llm, EXTRACTOR)).ingest(List.of(newFile));
     assertTrue(Files.exists(root.resolve("工作文档/新通知.txt")));
 
     // 5. 混合搜索（fake LLM 无嵌入能力，文档向量由单位向量兜底；查询侧零向量故仅关键词路生效）

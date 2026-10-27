@@ -64,7 +64,7 @@ class FileProcessorTest {
 
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
-          new FileProcessor(root, CFG, new FakeLlm(), ex)
+          new FileProcessor(new RepoSession(root, CFG, new FakeLlm(), ex))
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       // LLM conf=0.936 但向量 top1=其他 → 钳 0.468 < 0.5 → 待分类（状态 UNKNOWN）
       assertEquals(root.resolve("待分类/报告.txt"), r.dest());
@@ -85,7 +85,7 @@ class FileProcessorTest {
 
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
-          new FileProcessor(root, CFG, new FakeLlm(), ex)
+          new FileProcessor(new RepoSession(root, CFG, new FakeLlm(), ex))
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       // 向量 top1=工作文档 与 LLM 一致 → conf=0.936 ≥ 0.85 → 自动归位
       assertEquals(root.resolve("工作文档/报告.txt"), r.dest());
@@ -112,7 +112,7 @@ class FileProcessorTest {
 
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
-          new FileProcessor(root, CFG, llm, ex)
+          new FileProcessor(new RepoSession(root, CFG, llm, ex))
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertNotNull(r.dest());
       assertEquals(root.resolve("工作文档/报告.txt"), r.dest());
@@ -134,7 +134,7 @@ class FileProcessorTest {
               {"name":"工作文档","score":0.95},{"name":"其他","score":0.1}],"self":0.95}
             """;
 
-    FileProcessor processor = new FileProcessor(root, CFG, llm, ex);
+    FileProcessor processor = new FileProcessor(new RepoSession(root, CFG, llm, ex));
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var tree = CategoryTree.load(RepoPaths.categoriesYaml(root));
       processor.warmVectors(tree); // 并发 prepare 前的预构建
@@ -169,7 +169,7 @@ class FileProcessorTest {
 
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
-          new FileProcessor(root, CFG, llm, ex)
+          new FileProcessor(new RepoSession(root, CFG, llm, ex))
               .process(src, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertNull(r.dest());
       assertEquals(FileStatus.DUPLICATE, r.status());
@@ -203,7 +203,7 @@ class FileProcessorTest {
             throw new AssertionError("强邻居证据下不应调用 LLM");
           };
       ContentExtractor ex = file -> new ContentExtractor.Extracted("工作文档相关内容", true);
-      FileProcessor processor = new FileProcessor(root, CFG, llmNever, ex);
+      FileProcessor processor = new FileProcessor(new RepoSession(root, CFG, llmNever, ex));
       processor.warmVectors(new CategoryTree(List.of(new Category("工作文档", "", List.of()))));
       Path f = root.resolve("新报告.txt");
       Files.writeString(f, "工作文档相关内容");
@@ -240,7 +240,7 @@ class FileProcessorTest {
             throw new IllegalStateException("LLM chat failed");
           };
       ContentExtractor ex = file -> new ContentExtractor.Extracted("工作文档相关内容", true);
-      FileProcessor processor = new FileProcessor(root, CFG, llmDown, ex);
+      FileProcessor processor = new FileProcessor(new RepoSession(root, CFG, llmDown, ex));
       processor.warmVectors(new CategoryTree(List.of(new Category("工作文档", "", List.of()))));
       Path f = root.resolve("新文件.txt");
       Files.writeString(f, "工作文档相关内容");

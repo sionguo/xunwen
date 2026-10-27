@@ -9,7 +9,6 @@ import cn.guoxy.xunwen.index.Doc;
 import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
-import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.move.FileMover;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -54,12 +53,12 @@ public final class FileProcessor {
   private CategoryTree vectorTree;
   private CategoryVectors vectors;
 
-  public FileProcessor(Path repoRoot, GlobalConfig cfg, LlmClient llm, ContentExtractor extractor) {
-    this.repoRoot = repoRoot.toAbsolutePath().normalize();
-    this.cfg = cfg;
-    this.classifier = new Classifier(llm, cfg);
+  public FileProcessor(RepoSession s) {
+    this.repoRoot = s.repo().toAbsolutePath().normalize();
+    this.cfg = s.config();
+    this.classifier = new Classifier(s.llm(), s.config());
     this.embedder =
-        llm instanceof EmbeddingClient ec
+        s.llm() instanceof EmbeddingClient ec
             ? ec
             : new EmbeddingClient() {
               @Override
@@ -72,7 +71,7 @@ public final class FileProcessor {
                 return texts.stream().map(_ -> RepoIndex.neutralVector(cfg.vectorDim())).toList();
               }
             };
-    this.extractor = extractor;
+    this.extractor = s.extractor();
     this.mover = new FileMover(this.repoRoot);
   }
 

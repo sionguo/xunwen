@@ -52,7 +52,7 @@ class ApprovalServiceTest {
               "内容",
               new float[] {1, 0, 0, 0}));
     }
-    new ApprovalService(root, CFG, HIGH_LLM, EX).approve(pending, "工作文档");
+    new ApprovalService(new RepoSession(root, CFG, HIGH_LLM, EX)).approve(pending, "工作文档");
 
     assertTrue(Files.exists(root.resolve("工作文档/文档.txt")));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
@@ -84,7 +84,7 @@ class ApprovalServiceTest {
               "内容",
               new float[] {0, 1, 0, 0}));
     }
-    new ApprovalService(root, CFG, HIGH_LLM, EX).approve(pending, "工作文档");
+    new ApprovalService(new RepoSession(root, CFG, HIGH_LLM, EX)).approve(pending, "工作文档");
 
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       // 中性向量 {1,0,0,0} 与 {0,1,0,0} 的 cos=0：写丢即过不了相似度门槛
@@ -125,7 +125,8 @@ class ApprovalServiceTest {
             """;
 
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(root));
-    new ApprovalService(root, CFG, llm, EX).approveProposal(tree, "发票凭证", "各类票据", true, null);
+    new ApprovalService(new RepoSession(root, CFG, llm, EX))
+        .approveProposal(tree, "发票凭证", "各类票据", true, null);
 
     var updated = CategoryTree.load(RepoPaths.categoriesYaml(root));
     assertTrue(updated.find("发票凭证").isPresent());
@@ -159,7 +160,7 @@ class ApprovalServiceTest {
     LlmClient unknown = msgs -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
 
     int n =
-        new ApprovalService(root, CFG, unknown, EX)
+        new ApprovalService(new RepoSession(root, CFG, unknown, EX))
             .removeCategory(CategoryTree.load(RepoPaths.categoriesYaml(root)), "工作文档");
 
     assertEquals(1, n);
@@ -201,7 +202,7 @@ class ApprovalServiceTest {
     LlmClient unknown = msgs -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
 
     int n =
-        new ApprovalService(root, CFG, unknown, EX)
+        new ApprovalService(new RepoSession(root, CFG, unknown, EX))
             .removeCategory(CategoryTree.load(RepoPaths.categoriesYaml(root)), "工作文档/报告");
 
     assertEquals(1, n); // 只有「报告」下的文件被移回待分类
@@ -250,7 +251,7 @@ class ApprovalServiceTest {
     }
 
     int n =
-        new ApprovalService(root, CFG, HIGH_LLM, EX)
+        new ApprovalService(new RepoSession(root, CFG, HIGH_LLM, EX))
             .approveBatch(
                 List.of(
                     new ApprovalService.PendingApproval(a, "工作文档"),

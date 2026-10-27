@@ -1,9 +1,6 @@
 package cn.guoxy.xunwen.pipeline;
 
-import cn.guoxy.xunwen.config.GlobalConfig;
-import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.RepoIndex;
-import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.io.IOException;
@@ -19,15 +16,11 @@ public final class ReshuffleTask {
   }
 
   private final Path repoRoot;
-  private final GlobalConfig cfg;
-  private final LlmClient llm;
-  private final ContentExtractor extractor;
+  private final RepoSession session;
 
-  public ReshuffleTask(Path repoRoot, GlobalConfig cfg, LlmClient llm, ContentExtractor extractor) {
-    this.repoRoot = repoRoot.toAbsolutePath().normalize();
-    this.cfg = cfg;
-    this.llm = llm;
-    this.extractor = extractor;
+  public ReshuffleTask(RepoSession s) {
+    this.repoRoot = s.repo().toAbsolutePath().normalize();
+    this.session = s;
   }
 
   /** 增量重排（默认）：处理所有未入库文件。 */
@@ -42,12 +35,12 @@ public final class ReshuffleTask {
       throw new IllegalStateException("先完成冷启动：缺少 " + treeYaml);
     }
     CategoryTree tree = CategoryTree.load(treeYaml);
-    FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
+    FileProcessor processor = new FileProcessor(session);
     BatchStats stats = new BatchStats();
     List<Path> files = RepoPaths.listRepoFiles(repoRoot, mode == Mode.FULL);
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       processor.warmVectors(tree);
-      new BatchRunner(cfg)
+      new BatchRunner(session.config())
           .run(
               files,
               files.size(),

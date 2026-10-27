@@ -6,6 +6,7 @@ import cn.guoxy.xunwen.config.RepoRegistry;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.extract.OcrFallbackExtractor;
 import cn.guoxy.xunwen.llm.OpenAiCompatClient;
+import cn.guoxy.xunwen.pipeline.RepoSession;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -142,8 +143,16 @@ public final class AppState {
         }
       };
 
+  /** 提取器应用级共享单例：重复 new 会让 Tika 解析器池反复重建（见 TikaExtractor 注释）。 */
+  private final ContentExtractor extractor = new OcrFallbackExtractor();
+
   public ContentExtractor extractor() {
-    return new OcrFallbackExtractor();
+    return extractor;
+  }
+
+  /** 仓库会话：同配置复用 LLM 客户端（引用比较失效重建），供后台任务作唯一构造参数。 */
+  public RepoSession sessionFor(Path repo) {
+    return new RepoSession(repo.toAbsolutePath().normalize(), config.get(), llm(), extractor());
   }
 
   public ObjectProperty<GlobalConfig> configProperty() {

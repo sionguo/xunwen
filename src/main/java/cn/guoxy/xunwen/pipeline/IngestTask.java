@@ -1,10 +1,7 @@
 package cn.guoxy.xunwen.pipeline;
 
-import cn.guoxy.xunwen.config.GlobalConfig;
-import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.FileInfo;
 import cn.guoxy.xunwen.index.RepoIndex;
-import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.io.IOException;
@@ -21,17 +18,13 @@ import java.util.Set;
 /** 增量入库与积压同步（FR-12：以文件系统为准修正索引）。 */
 public final class IngestTask {
   private final Path repoRoot;
+  private final RepoSession session;
   private final FileProcessor processor;
-  private final GlobalConfig cfg;
-  private final LlmClient llm;
-  private final ContentExtractor extractor;
 
-  public IngestTask(Path repoRoot, GlobalConfig cfg, LlmClient llm, ContentExtractor extractor) {
-    this.repoRoot = repoRoot.toAbsolutePath().normalize();
-    this.cfg = cfg;
-    this.llm = llm;
-    this.extractor = extractor;
-    this.processor = new FileProcessor(this.repoRoot, cfg, llm, extractor);
+  public IngestTask(RepoSession s) {
+    this.repoRoot = s.repo().toAbsolutePath().normalize();
+    this.session = s;
+    this.processor = new FileProcessor(s);
   }
 
   /** 增量入库（监视新到文件，量少走串行）；返回含移动明细的处置统计。 */
@@ -99,7 +92,7 @@ public final class IngestTask {
       }
       int total = Math.max(1, fs.size());
       processor.warmVectors(tree);
-      new BatchRunner(cfg)
+      new BatchRunner(session.config())
           .run(
               toProcess,
               total,

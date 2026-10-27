@@ -1,11 +1,8 @@
 package cn.guoxy.xunwen.pipeline;
 
-import cn.guoxy.xunwen.config.GlobalConfig;
-import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
-import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.move.FileMover;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
@@ -19,16 +16,11 @@ import java.util.List;
 /** 人工审批与类别树变更后的归位（FR-2/FR-6）。 */
 public final class ApprovalService {
   private final Path repoRoot;
-  private final GlobalConfig cfg;
-  private final LlmClient llm;
-  private final ContentExtractor extractor;
+  private final RepoSession session;
 
-  public ApprovalService(
-      Path repoRoot, GlobalConfig cfg, LlmClient llm, ContentExtractor extractor) {
-    this.repoRoot = repoRoot.toAbsolutePath().normalize();
-    this.cfg = cfg;
-    this.llm = llm;
-    this.extractor = extractor;
+  public ApprovalService(RepoSession s) {
+    this.repoRoot = s.repo().toAbsolutePath().normalize();
+    this.session = s;
   }
 
   /** 批量人工归位项：待审文件 → 目标类别。 */
@@ -150,7 +142,7 @@ public final class ApprovalService {
         Path pendingFile = RepoPaths.pendingDir(repoRoot).resolve(Path.of(d.path()).getFileName());
         if (Files.exists(pendingFile)) {
           index.deleteByPath(FileProcessor.posix(repoRoot.relativize(pendingFile)));
-          new FileProcessor(repoRoot, cfg, llm, extractor).process(pendingFile, updated, index);
+          new FileProcessor(session).process(pendingFile, updated, index);
           count++;
         }
       }
@@ -159,7 +151,7 @@ public final class ApprovalService {
   }
 
   private void reclassifyAllUnknowns(CategoryTree tree) throws IOException {
-    FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
+    FileProcessor processor = new FileProcessor(session);
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       for (StoredDoc d : index.byStatus(FileStatus.UNKNOWN, 10_000)) {
         index.deleteByPath(d.path()); // 先删索引，让 process 重走完整流程

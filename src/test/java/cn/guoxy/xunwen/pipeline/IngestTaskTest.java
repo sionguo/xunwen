@@ -44,7 +44,7 @@ class IngestTaskTest {
     prepareRepo(root);
     Path f = root.resolve("新通知.txt");
     Files.writeString(f, "又一份通知");
-    new IngestTask(root, CFG, fakeLlm(), fakeExtractor()).ingest(List.of(f));
+    new IngestTask(new RepoSession(root, CFG, fakeLlm(), fakeExtractor())).ingest(List.of(f));
     assertTrue(Files.exists(root.resolve("工作文档/新通知.txt")));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertTrue(idx.findByPath("工作文档/新通知.txt").isPresent());
@@ -56,7 +56,7 @@ class IngestTaskTest {
     prepareRepo(root);
     Path a = root.resolve("已入库.txt");
     Files.writeString(a, "旧");
-    var task = new IngestTask(root, CFG, fakeLlm(), fakeExtractor());
+    var task = new IngestTask(new RepoSession(root, CFG, fakeLlm(), fakeExtractor()));
     task.ingest(List.of(a));
 
     // 积压：新文件未经 ingest
@@ -103,7 +103,7 @@ class IngestTaskTest {
               new float[] {1, 0, 0, 0}));
     }
 
-    new IngestTask(root, CFG, fakeLlm(), fakeExtractor()).sync();
+    new IngestTask(new RepoSession(root, CFG, fakeLlm(), fakeExtractor())).sync();
 
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertEquals(FileStatus.PENDING, idx.findByPath("待分类/a.txt").orElseThrow().status());
@@ -115,7 +115,7 @@ class IngestTaskTest {
     // 未冷启动的仓库（无 categories.yaml）：打开/watch 都不应抛异常，等冷启动后 sync 再处理
     Path f = root.resolve("未分类.txt");
     Files.writeString(f, "内容");
-    var task = new IngestTask(root, CFG, fakeLlm(), fakeExtractor());
+    var task = new IngestTask(new RepoSession(root, CFG, fakeLlm(), fakeExtractor()));
     assertEquals(0, task.sync().touched());
     assertTrue(task.ingest(List.of(f)).moved().isEmpty());
     assertTrue(Files.exists(f)); // 文件留在原地未被移动
@@ -134,7 +134,7 @@ class IngestTaskTest {
           llmCalls[0]++;
           return "{\"category\":\"\",\"candidates\":[],\"self\":0.1}"; // UNKNOWN
         };
-    var task = new IngestTask(root, CFG, counting, fakeExtractor());
+    var task = new IngestTask(new RepoSession(root, CFG, counting, fakeExtractor()));
 
     task.sync();
     assertTrue(Files.exists(pending.resolve("遗留文件.txt"))); // 未被改名/移动
@@ -156,7 +156,7 @@ class IngestTaskTest {
     List<String> seen = new java.util.ArrayList<>();
     BatchRunner.Progress progress =
         (done, total, file) -> seen.add(done + "/" + total + ":" + file);
-    new IngestTask(root, CFG, fakeLlm(), fakeExtractor()).sync(progress);
+    new IngestTask(new RepoSession(root, CFG, fakeLlm(), fakeExtractor())).sync(progress);
     assertEquals(2, seen.size()); // 每个入库文件一次进度回调
     assertTrue(seen.get(seen.size() - 1).startsWith("2/2:"));
   }

@@ -22,6 +22,10 @@ _Avoid_: 整理、归档
 **两阶段处理 (prepare / commit)**:
 单个文件入库的两个阶段：prepare（解析、向量化、分类）只读可并发；commit（移动、写索引）串行独占。
 
+**仓库会话 (RepoSession)**:
+一个仓库与其处理资源（配置、LLM 客户端、提取器）的装配快照，后台任务经 `AppState.sessionFor(repo)` 获取；同配置复用 LLM 客户端，配置变更自动失效重建。
+_Avoid_: 会话上下文、SessionContext
+
 **待审 (PENDING)**:
 分类置信度处于中间档、已入库但等待人工裁决归位的文件。
 _Avoid_: 待处理

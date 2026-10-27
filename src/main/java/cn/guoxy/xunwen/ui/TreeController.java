@@ -359,9 +359,7 @@ public class TreeController implements PageAware {
     activeCancelFlag = cancelledFlag;
     Fx.runEngine(
         state,
-        () ->
-            new ReshuffleTask(repo, state.config(), state.llm(), state.extractor())
-                .run(listener, mode),
+        () -> new ReshuffleTask(state.sessionFor(repo)).run(listener, mode),
         stats -> {
           setBusy(false, false);
           progress.setVisible(false); // 完成即隐藏，不满格蓝条常驻状态栏
@@ -454,7 +452,7 @@ public class TreeController implements PageAware {
               Fx.runEngine(
                   state,
                   () ->
-                      new ApprovalService(repo, state.config(), state.llm(), state.extractor())
+                      new ApprovalService(state.sessionFor(repo))
                           .removeCategory(CategoryTree.load(RepoPaths.categoriesYaml(repo)), path),
                   n -> {
                     reload();
