@@ -38,6 +38,8 @@ public class SearchController implements PageAware {
   /** 浏览模式单仓库装载上限：分面计数仍是索引全量，仅列表截断。 */
   private static final int BROWSE_CAP = 200;
 
+  private static final int SNIPPET_CHARS = 120; // 浏览模式结果摘要长度
+
   private final AppState state;
   // 搜索任务在后台线程写入、FX 线程双击时读取，用并发容器保证可见性
   private final Map<String, Path> repoRootByName = new ConcurrentHashMap<>();
@@ -207,7 +209,7 @@ public class SearchController implements PageAware {
           Map<String, Long> cats = new LinkedHashMap<>();
           Map<String, Long> sts = new LinkedHashMap<>();
           List<HybridSearcher.Hit> docs = new ArrayList<>();
-          var indices = new java.util.LinkedHashMap<String, RepoIndex>();
+          var indices = new LinkedHashMap<String, RepoIndex>();
           try {
             for (Path repo : repos) {
               Path idxDir = RepoPaths.indexDir(repo);
@@ -255,7 +257,7 @@ public class SearchController implements PageAware {
 
   private static HybridSearcher.Hit toBrowseHit(String repoName, StoredDoc d) {
     String content = d.content() == null ? "" : d.content();
-    String snippet = content.substring(0, Math.min(120, content.length()));
+    String snippet = content.substring(0, Math.min(SNIPPET_CHARS, content.length()));
     return new HybridSearcher.Hit(
         repoName, d.path(), d.name(), d.categoryPath(), d.status(), snippet, 0);
   }
@@ -395,7 +397,7 @@ public class SearchController implements PageAware {
     repoRootByName.clear();
     List<RepoIndex> opened = new ArrayList<>();
     try {
-      var indices = new java.util.LinkedHashMap<String, RepoIndex>();
+      var indices = new LinkedHashMap<String, RepoIndex>();
       for (Path repo : repos) {
         Path idxDir = RepoPaths.indexDir(repo);
         if (Files.exists(idxDir)) {

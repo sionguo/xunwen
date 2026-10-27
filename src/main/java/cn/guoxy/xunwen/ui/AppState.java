@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ListProperty;
@@ -40,8 +41,7 @@ public final class AppState {
   private final StringProperty activity = new SimpleStringProperty("");
 
   /** 跨页面导航请求(架构:控制器间零耦合):消费者由 MainController 注册,值为页面名。 */
-  private final ObjectProperty<java.util.function.Consumer<String>> navigationHandler =
-      new SimpleObjectProperty<>();
+  private final ObjectProperty<Consumer<String>> navigationHandler = new SimpleObjectProperty<>();
 
   /** 引导式初始化标志:仓库页发起「生成类别树提案」跳转后,类别树页消费该标志自动开始。 */
   private final BooleanProperty autoGenerateProposal = new SimpleBooleanProperty();
@@ -208,7 +208,7 @@ public final class AppState {
   }
 
   /** 注册导航处理器(MainController 启动时调用一次)。 */
-  public void setNavigationHandler(java.util.function.Consumer<String> handler) {
+  public void setNavigationHandler(Consumer<String> handler) {
     navigationHandler.set(handler);
   }
 
