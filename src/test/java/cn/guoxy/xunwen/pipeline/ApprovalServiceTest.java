@@ -63,6 +63,38 @@ class ApprovalServiceTest {
   }
 
   @Test
+  void approvePreservesSemanticVector(@TempDir Path root) throws Exception {
+    // 人工归位不得把真实向量写成中性向量：归位后 KNN 邻居查询应仍能以原向量命中它
+    new CategoryTree(List.of(new Category("工作文档", "", List.of())))
+        .save(RepoPaths.categoriesYaml(root));
+    Path pending = Files.createDirectories(RepoPaths.pendingDir(root)).resolve("文档.txt");
+    Files.writeString(pending, "内容");
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
+      idx.upsert(
+          new Doc(
+              "待分类/文档.txt",
+              "文档.txt",
+              "txt",
+              "h",
+              1L,
+              2L,
+              "PENDING",
+              "",
+              "内容",
+              new float[] {0, 1, 0, 0}));
+    }
+    new ApprovalService(root, CFG, HIGH_LLM, EX).approve(pending, "工作文档");
+
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
+      // 中性向量 {1,0,0,0} 与 {0,1,0,0} 的 cos=0：写丢即过不了相似度门槛
+      var neighbors = idx.knnNeighbors(new float[] {0, 1, 0, 0}, 1);
+      assertFalse(neighbors.isEmpty());
+      assertEquals("工作文档", neighbors.getFirst().categoryPath());
+      assertTrue(neighbors.getFirst().similarity() > 0.5f);
+    }
+  }
+
+  @Test
   void approveProposalAddsCategoryAndReclassifiesUnknowns(@TempDir Path root) throws Exception {
     new CategoryTree(List.of(new Category("其他", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));

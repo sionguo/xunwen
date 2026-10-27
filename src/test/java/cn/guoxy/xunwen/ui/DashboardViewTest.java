@@ -59,7 +59,8 @@ class DashboardViewTest extends ViewTestBase {
               neutral,
               "",
               "",
-              0.9));
+              0.9,
+              ""));
       idx.upsert(new Doc("待分类/b.txt", "b.txt", "txt", "h", 1L, 2L, "PENDING", "", "c", neutral));
     }
 

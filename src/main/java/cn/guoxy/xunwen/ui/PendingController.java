@@ -302,7 +302,7 @@ public class PendingController {
         try {
           return state.llm().embed(text);
         } catch (RuntimeException e) {
-          return new float[state.config().vectorDim()];
+          return RepoIndex.skipVector(state.config().vectorDim());
         }
       }
 

@@ -2,7 +2,6 @@ package cn.guoxy.xunwen.pipeline;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
-import cn.guoxy.xunwen.index.Doc;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.LlmClient;
@@ -61,25 +60,15 @@ public final class ApprovalService {
     String categoryPath = item.categoryPath();
     String oldRel =
         FileProcessor.posix(repoRoot.relativize(pendingFile.toAbsolutePath().normalize()));
-    StoredDoc old = index.findByPath(oldRel).orElse(null);
     FileMover.MoveOutcome moved = mover.move(pendingFile, repoRoot.resolve(categoryPath));
-    index.deleteByPath(oldRel);
-    index.upsert(
-        new Doc(
-            FileProcessor.posix(repoRoot.relativize(moved.dest())),
-            moved.dest().getFileName().toString(),
-            ContentExtractor.ext(moved.dest().getFileName().toString()),
-            moved.hash(),
-            Files.getLastModifiedTime(moved.dest()).toMillis(),
-            Files.size(moved.dest()),
-            "INDEXED",
-            categoryPath,
-            old == null ? "" : old.content(),
-            FileProcessor.neutralVector(cfg),
-            old == null ? "" : old.proposed(),
-            old == null ? "" : old.reason(),
-            old == null ? 0.0 : old.confidence(),
-            categoryPath)); // 候选即最终归类
+    // 归位保留 content/语义向量/分类元数据，仅更新处置与落点
+    index.relocate(
+        oldRel,
+        FileProcessor.posix(repoRoot.relativize(moved.dest())),
+        moved.dest(),
+        moved.hash(),
+        "INDEXED",
+        categoryPath);
     return true;
   }
 

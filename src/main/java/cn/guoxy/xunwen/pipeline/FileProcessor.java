@@ -64,12 +64,12 @@ public final class FileProcessor {
             : new EmbeddingClient() {
               @Override
               public float[] embed(String text) {
-                return neutralVector(cfg);
+                return RepoIndex.neutralVector(cfg.vectorDim());
               }
 
               @Override
               public List<float[]> embedAll(List<String> texts) {
-                return texts.stream().map(_ -> neutralVector(cfg)).toList();
+                return texts.stream().map(_ -> RepoIndex.neutralVector(cfg.vectorDim())).toList();
               }
             };
     this.extractor = extractor;
@@ -154,7 +154,7 @@ public final class FileProcessor {
               status,
               outcome.action() == Action.AUTO_MOVE ? outcome.categoryPath() : "",
               p.rawText(),
-              p.fileVec() == null ? neutralVector(cfg) : p.fileVec(),
+              p.fileVec() == null ? RepoIndex.neutralVector(cfg.vectorDim()) : p.fileVec(),
               outcome.proposedCategory(),
               outcome.proposalReason(),
               outcome.confidence(),
@@ -229,13 +229,6 @@ public final class FileProcessor {
       vectors = new CategoryVectors(tree, embedder);
     }
     return vectors;
-  }
-
-  /** Lucene COSINE 拒绝全零向量：单位向量作中性兜底，保证入库不阻断（ApprovalService 共用）。 */
-  static float[] neutralVector(GlobalConfig cfg) {
-    float[] v = new float[cfg.vectorDim()];
-    v[0] = 1f;
-    return v;
   }
 
   static String posix(Path p) {

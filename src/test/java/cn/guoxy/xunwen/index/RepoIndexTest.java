@@ -250,4 +250,48 @@ class RepoIndexTest {
       assertEquals("工作文档", neighbors.getFirst().categoryPath());
     }
   }
+
+  @Test
+  void relocatePreservesVectorAndMetadata(@TempDir Path dir) throws Exception {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
+      idx.upsert(
+          new Doc(
+              "待分类/p.pdf",
+              "p.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              "PENDING",
+              "",
+              "原始内容",
+              new float[] {0, 1, 0, 0},
+              "发票凭证",
+              "无法归类",
+              0.42,
+              "财务税务"));
+      Path dest = dir.resolve("归档/p.pdf");
+      Files.createDirectories(dest.getParent());
+      Files.writeString(dest, "文件本体");
+      idx.relocate("待分类/p.pdf", "归档/p.pdf", dest, "hash2", "INDEXED", "工作文档");
+
+      // 处置与落点更新；候选即最终归类
+      StoredDoc d = idx.findByPath("归档/p.pdf").orElseThrow();
+      assertEquals("INDEXED", d.status());
+      assertEquals("工作文档", d.categoryPath());
+      assertEquals("工作文档", d.candidatePath());
+      // 保留：内容与分类元数据
+      assertEquals("原始内容", d.content());
+      assertEquals("发票凭证", d.proposed());
+      assertEquals("无法归类", d.reason());
+      assertEquals(0.42, d.confidence(), 1e-9);
+      assertTrue(idx.findByPath("待分类/p.pdf").isEmpty()); // 旧条目已删
+      // 语义向量保留（黑盒）：原向量 {0,1,0,0} 的最近邻是归位后的它且相似度为 1
+      // （若写成中性向量 {1,0,0,0}，cos=0 过不了门槛——knnNeighbors 本身不过滤相似度）
+      var neighbors = idx.knnNeighbors(new float[] {0, 1, 0, 0}, 1);
+      assertEquals(1, neighbors.size());
+      assertEquals("工作文档", neighbors.getFirst().categoryPath());
+      assertTrue(neighbors.getFirst().similarity() > 0.5f);
+    }
+  }
 }

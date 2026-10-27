@@ -17,12 +17,15 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
@@ -142,6 +145,79 @@ public final class RepoIndex implements AutoCloseable {
     }
     writer.deleteDocuments(new Term(F_PATH, path));
     dirty = true;
+  }
+
+  /**
+   * 归位重写：已入库条目物理移动到 dest 后同步索引。保留 content/语义向量/提议/理由/置信度； path/name/ext/mtime/size 从 dest
+   * 现算，hash/status/categoryPath 由调用方给定，候选类别即最终归类。 条目不存在时抛出——归位对象必须已入库，静默造空条目会掩盖不一致。
+   */
+  public void relocate(
+      String oldRel, String newRel, Path dest, String hash, String status, String categoryPath)
+      throws IOException {
+    TopDocs hit = search(new TermQuery(new Term(F_PATH, oldRel)), 1);
+    if (hit.scoreDocs.length == 0) {
+      throw new IllegalStateException("归位条目不在索引中: " + oldRel);
+    }
+    int docId = hit.scoreDocs[0].doc;
+    float[] vec = vectorOf(docId);
+    if (vec == null) {
+      throw new IllegalStateException("归位条目缺少向量字段: " + oldRel);
+    }
+    Document d = reader().storedFields().document(docId);
+    var conf = d.getField(F_CONFIDENCE);
+    deleteByPath(oldRel);
+    String name = dest.getFileName().toString();
+    int dot = name.lastIndexOf('.');
+    upsert(
+        new Doc(
+            newRel,
+            name,
+            dot > 0 ? name.substring(dot + 1) : "",
+            hash,
+            Files.getLastModifiedTime(dest).toMillis(),
+            Files.size(dest),
+            status,
+            categoryPath,
+            d.get(F_CONTENT),
+            vec,
+            d.get(F_PROPOSED),
+            d.get(F_REASON),
+            conf == null ? 0.0 : conf.numericValue().doubleValue(), // 老条目无该字段
+            categoryPath));
+  }
+
+  /** 读回第 docId 号文档的存储向量（按 leaf 定位后查向量值表）；无向量字段返回 null。 */
+  private float[] vectorOf(int docId) throws IOException {
+    for (LeafReaderContext ctx : reader().leaves()) {
+      if (docId < ctx.docBase || docId >= ctx.docBase + ctx.reader().maxDoc()) {
+        continue;
+      }
+      FloatVectorValues values = ctx.reader().getFloatVectorValues(F_VEC);
+      if (values == null) {
+        return null;
+      }
+      var it = values.iterator();
+      int leafDoc = docId - ctx.docBase;
+      while (it.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+        if (it.docID() == leafDoc) {
+          return values.vectorValue(it.index());
+        }
+      }
+      return null;
+    }
+    return null;
+  }
+
+  /** 中性向量：Lucene COSINE 拒绝全零，入库无真实向量时以单位向量兜底（维度由调用方配置给定）。 */
+  public static float[] neutralVector(int dim) {
+    float[] v = new float[dim];
+    v[0] = 1f;
+    return v;
+  }
+
+  /** 跳过向量：全零表达「本次检索不走 KNN 路」（与 HybridSearcher.isAllZero 的约定一致）。 */
+  public static float[] skipVector(int dim) {
+    return new float[dim];
   }
 
   public Optional<StoredDoc> findByPath(String path) throws IOException {

@@ -392,7 +392,7 @@ public class SearchController implements PageAware {
   private List<HybridSearcher.Hit> doSearch(List<Path> repos, String q) throws Exception {
     float[] vec = state.queryVector(q); // LRU 缓存命中即返回；失败返回 null
     if (vec == null) {
-      vec = new float[state.config().vectorDim()]; // embedding 不可用退关键词路
+      vec = RepoIndex.skipVector(state.config().vectorDim()); // embedding 不可用退关键词路
     }
     repoRootByName.clear();
     List<RepoIndex> opened = new ArrayList<>();
