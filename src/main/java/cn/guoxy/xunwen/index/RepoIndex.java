@@ -200,6 +200,11 @@ public final class RepoIndex implements AutoCloseable {
     }
   }
 
+  /** 以现成 Query 检索（调用方自管解析，避免同一查询重复 parse）。 */
+  public ScoreDoc[] searchDocs(Query q, int k) throws IOException {
+    return search(q, k).scoreDocs;
+  }
+
   /** 一条 kNN 邻居证据：已归档邻居的类别路径与相似度（分层分类/降级分类用）。 */
   public record Neighbor(String categoryPath, float similarity) {}
 

@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Map;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.cn.smart.SmartChineseAnalyzer;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.highlight.Highlighter;
 import org.apache.lucene.search.highlight.InvalidTokenOffsetsException;
 import org.apache.lucene.search.highlight.QueryScorer;
@@ -49,16 +49,15 @@ public final class HybridSearcher {
       // 零向量无方向信号，cosine 相似度无意义（Lucene 对零向量直接断言失败）：
       // 此时跳过 KNN 路，仅关键词路出结果
       boolean hasVecSignal = !isAllZero(queryVec);
+      // 关键词路解析一次（同字段同分词器，各仓库复用同一 Query；高亮复用同一实例）
+      Query kwQuery =
+          new MultiFieldQueryParser(new String[] {RepoIndex.F_NAME, RepoIndex.F_CONTENT}, analyzer)
+              .parse(query);
       for (var entry : indices.entrySet()) {
         RepoIndex idx = entry.getValue();
         List<StoredDoc> knnDocs =
             hasVecSignal ? idx.storedOf(idx.searchKnn(queryVec, CANDIDATES).scoreDocs) : List.of();
-        ScoreDoc[] kwHits = idx.searchKeyword(query, CANDIDATES);
-        List<StoredDoc> kwDocs = idx.storedOf(kwHits);
-        Query kwQuery =
-            new org.apache.lucene.queryparser.classic.MultiFieldQueryParser(
-                    new String[] {RepoIndex.F_NAME, RepoIndex.F_CONTENT}, analyzer)
-                .parse(query);
+        List<StoredDoc> kwDocs = idx.storedOf(idx.searchDocs(kwQuery, CANDIDATES));
         kwQueries.put(entry.getKey(), kwQuery);
 
         int rank = 1;
