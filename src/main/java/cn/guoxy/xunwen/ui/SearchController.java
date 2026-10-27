@@ -166,8 +166,8 @@ public class SearchController implements PageAware {
       Fx.alert("没有可搜索的仓库");
       return;
     }
-    Fx.runEngine(
-        state,
+    // 搜索是只读操作（只读索引实例），不进 engineLock：批量任务进行中也能即时搜索
+    Fx.runAsync(
         () -> doSearch(repos, q),
         hits -> {
           queryMode = true;
@@ -211,7 +211,7 @@ public class SearchController implements PageAware {
                 continue;
               }
               String repoName = repo.getFileName().toString();
-              RepoIndex idx = new RepoIndex(idxDir);
+              RepoIndex idx = RepoIndex.openReadOnly(idxDir); // 不抢写锁：与批量任务并发
               indices.put(repoName, idx);
               repoRootByName.put(repoName, repo);
               for (String status : List.of("INDEXED", "PENDING", "UNKNOWN")) {
@@ -386,10 +386,8 @@ public class SearchController implements PageAware {
   }
 
   private List<HybridSearcher.Hit> doSearch(List<Path> repos, String q) throws Exception {
-    float[] vec;
-    try {
-      vec = state.llm().embed(q);
-    } catch (RuntimeException e) {
+    float[] vec = state.queryVector(q); // LRU 缓存命中即返回；失败返回 null
+    if (vec == null) {
       vec = new float[state.config().vectorDim()]; // embedding 不可用退关键词路
     }
     repoRootByName.clear();
@@ -399,7 +397,7 @@ public class SearchController implements PageAware {
       for (Path repo : repos) {
         Path idxDir = RepoPaths.indexDir(repo);
         if (Files.exists(idxDir)) {
-          RepoIndex idx = new RepoIndex(idxDir);
+          RepoIndex idx = RepoIndex.openReadOnly(idxDir); // 不抢写锁：与批量任务并发
           indices.put(repo.getFileName().toString(), idx);
           opened.add(idx);
           repoRootByName.put(repo.getFileName().toString(), repo);
