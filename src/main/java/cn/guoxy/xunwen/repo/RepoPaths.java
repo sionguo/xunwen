@@ -1,6 +1,10 @@
 package cn.guoxy.xunwen.repo;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
 
 public final class RepoPaths {
   private RepoPaths() {}
@@ -24,6 +28,18 @@ public final class RepoPaths {
 
   public static Path pendingDir(Path repoRoot) {
     return repoRoot.resolve(CategoryTree.PENDING_DIR_NAME);
+  }
+
+  /** 仓库内文件清单：跳过 .xunwen、隐藏段与 Office 锁文件；includePending=false 排除待分类目录。 */
+  public static List<Path> listRepoFiles(Path repoRoot, boolean includePending) throws IOException {
+    Path xunwen = xunwenDir(repoRoot);
+    Path pending = pendingDir(repoRoot);
+    try (Stream<Path> walk = Files.walk(repoRoot)) {
+      return walk.filter(Files::isRegularFile)
+          .filter(p -> !p.startsWith(xunwen) && (includePending || !p.startsWith(pending)))
+          .filter(p -> !isSkippable(repoRoot, p))
+          .toList();
+    }
   }
 
   /**

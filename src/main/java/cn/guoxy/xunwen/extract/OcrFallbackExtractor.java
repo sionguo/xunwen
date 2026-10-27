@@ -35,7 +35,8 @@ public final class OcrFallbackExtractor implements ContentExtractor {
   @Override
   public Extracted extract(Path file) throws IOException {
     Extracted ex = tika.extract(file);
-    if (ex.hasTextLayer() || !"pdf".equalsIgnoreCase(ext(file))) {
+    if (ex.hasTextLayer()
+        || !"pdf".equalsIgnoreCase(ContentExtractor.ext(file.getFileName().toString()))) {
       return ex;
     }
     String text = ocrFirstPages(file);
@@ -90,11 +91,5 @@ public final class OcrFallbackExtractor implements ContentExtractor {
     Mat mat = new Mat(bgr.getHeight(), bgr.getWidth(), CvType.CV_8UC3);
     mat.put(0, 0, ((DataBufferByte) bgr.getRaster().getDataBuffer()).getData());
     return mat;
-  }
-
-  private static String ext(Path file) {
-    String name = file.getFileName().toString();
-    int dot = name.lastIndexOf('.');
-    return dot < 0 ? "" : name.substring(dot + 1);
   }
 }

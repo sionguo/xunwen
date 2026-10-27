@@ -64,12 +64,12 @@ public final class FileProcessor {
             : new EmbeddingClient() {
               @Override
               public float[] embed(String text) {
-                return neutralVector();
+                return neutralVector(cfg);
               }
 
               @Override
               public List<float[]> embedAll(List<String> texts) {
-                return texts.stream().map(_ -> neutralVector()).toList();
+                return texts.stream().map(_ -> neutralVector(cfg)).toList();
               }
             };
     this.extractor = extractor;
@@ -147,14 +147,14 @@ public final class FileProcessor {
           new Doc(
               posix(repoRoot.relativize(actual)),
               actual.getFileName().toString(),
-              ext(name),
+              ContentExtractor.ext(name),
               hash,
               Files.getLastModifiedTime(actual).toMillis(),
               Files.size(actual),
               status,
               outcome.action() == Action.AUTO_MOVE ? outcome.categoryPath() : "",
               p.rawText(),
-              p.fileVec() == null ? neutralVector() : p.fileVec(),
+              p.fileVec() == null ? neutralVector(cfg) : p.fileVec(),
               outcome.proposedCategory(),
               outcome.proposalReason(),
               outcome.confidence(),
@@ -222,8 +222,8 @@ public final class FileProcessor {
     }
   }
 
-  /** 类目向量表按 tree 实例惰性重建；树变更（批准/删除类别）产生新实例即自动刷新。 */
-  private CategoryVectors vectorsFor(CategoryTree tree) {
+  /** 类目向量表按 tree 实例惰性重建；树变更（批准/删除类别）产生新实例即自动刷新。同步防并发 prepare 的 check-then-act。 */
+  private synchronized CategoryVectors vectorsFor(CategoryTree tree) {
     if (vectors == null || vectorTree != tree) {
       vectorTree = tree;
       vectors = new CategoryVectors(tree, embedder);
@@ -231,8 +231,8 @@ public final class FileProcessor {
     return vectors;
   }
 
-  /** Lucene COSINE 拒绝全零向量：单位向量作中性兜底，保证入库不阻断。 */
-  private float[] neutralVector() {
+  /** Lucene COSINE 拒绝全零向量：单位向量作中性兜底，保证入库不阻断（ApprovalService 共用）。 */
+  static float[] neutralVector(GlobalConfig cfg) {
     float[] v = new float[cfg.vectorDim()];
     v[0] = 1f;
     return v;
@@ -240,10 +240,5 @@ public final class FileProcessor {
 
   static String posix(Path p) {
     return p.toString().replace('\\', '/');
-  }
-
-  static String ext(String name) {
-    int dot = name.lastIndexOf('.');
-    return dot > 0 ? name.substring(dot + 1) : "";
   }
 }

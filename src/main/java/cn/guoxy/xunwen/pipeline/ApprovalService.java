@@ -68,14 +68,14 @@ public final class ApprovalService {
         new Doc(
             FileProcessor.posix(repoRoot.relativize(moved.dest())),
             moved.dest().getFileName().toString(),
-            FileProcessor.ext(moved.dest().getFileName().toString()),
+            ContentExtractor.ext(moved.dest().getFileName().toString()),
             moved.hash(),
             Files.getLastModifiedTime(moved.dest()).toMillis(),
             Files.size(moved.dest()),
             "INDEXED",
             categoryPath,
             old == null ? "" : old.content(),
-            neutralVector(),
+            FileProcessor.neutralVector(cfg),
             old == null ? "" : old.proposed(),
             old == null ? "" : old.reason(),
             old == null ? 0.0 : old.confidence(),
@@ -185,12 +185,5 @@ public final class ApprovalService {
     List<Category> out = new ArrayList<>(children);
     out.add(node);
     return out;
-  }
-
-  /** Lucene COSINE 拒绝全零向量：单位向量作中性兜底（与 FileProcessor 一致）。 */
-  private float[] neutralVector() {
-    float[] v = new float[cfg.vectorDim()];
-    v[0] = 1f;
-    return v;
   }
 }
