@@ -3,6 +3,7 @@ package cn.guoxy.xunwen.ui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import cn.guoxy.xunwen.index.Doc;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
@@ -53,7 +54,7 @@ class DashboardViewTest extends ViewTestBase {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档",
               "c",
               neutral,
@@ -61,7 +62,8 @@ class DashboardViewTest extends ViewTestBase {
               "",
               0.9,
               ""));
-      idx.upsert(new Doc("待分类/b.txt", "b.txt", "txt", "h", 1L, 2L, "PENDING", "", "c", neutral));
+      idx.upsert(
+          new Doc("待分类/b.txt", "b.txt", "txt", "h", 1L, 2L, FileStatus.PENDING, "", "c", neutral));
     }
 
     interact(

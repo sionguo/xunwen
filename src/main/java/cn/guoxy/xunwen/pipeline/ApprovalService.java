@@ -2,6 +2,7 @@ package cn.guoxy.xunwen.pipeline;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.LlmClient;
@@ -67,7 +68,7 @@ public final class ApprovalService {
         FileProcessor.posix(repoRoot.relativize(moved.dest())),
         moved.dest(),
         moved.hash(),
-        "INDEXED",
+        FileStatus.INDEXED,
         categoryPath);
     return true;
   }
@@ -160,7 +161,7 @@ public final class ApprovalService {
   private void reclassifyAllUnknowns(CategoryTree tree) throws IOException {
     FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
     try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
-      for (StoredDoc d : index.byStatus("UNKNOWN", 10_000)) {
+      for (StoredDoc d : index.byStatus(FileStatus.UNKNOWN, 10_000)) {
         index.deleteByPath(d.path()); // 先删索引，让 process 重走完整流程
         Path file = repoRoot.resolve(d.path());
         if (Files.exists(file)) {

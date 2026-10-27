@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.Category;
@@ -46,7 +47,7 @@ class ApprovalServiceTest {
               "h",
               1L,
               2L,
-              "PENDING",
+              FileStatus.PENDING,
               "",
               "内容",
               new float[] {1, 0, 0, 0}));
@@ -56,7 +57,7 @@ class ApprovalServiceTest {
     assertTrue(Files.exists(root.resolve("工作文档/文档.txt")));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var doc = idx.findByPath("工作文档/文档.txt").orElseThrow();
-      assertEquals("INDEXED", doc.status());
+      assertEquals(FileStatus.INDEXED, doc.status());
       assertEquals("工作文档", doc.categoryPath());
       assertTrue(idx.findByPath("待分类/文档.txt").isEmpty());
     }
@@ -78,7 +79,7 @@ class ApprovalServiceTest {
               "h",
               1L,
               2L,
-              "PENDING",
+              FileStatus.PENDING,
               "",
               "内容",
               new float[] {0, 1, 0, 0}));
@@ -110,7 +111,7 @@ class ApprovalServiceTest {
               "h",
               1L,
               2L,
-              "UNKNOWN",
+              FileStatus.UNKNOWN,
               "",
               "内容",
               new float[] {1, 0, 0, 0}));
@@ -130,7 +131,7 @@ class ApprovalServiceTest {
     assertTrue(updated.find("发票凭证").isPresent());
     assertTrue(Files.exists(root.resolve("发票凭证/发票.txt"))); // 重分类后移出待分类
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      assertEquals("INDEXED", idx.findByPath("发票凭证/发票.txt").orElseThrow().status());
+      assertEquals(FileStatus.INDEXED, idx.findByPath("发票凭证/发票.txt").orElseThrow().status());
     }
   }
 
@@ -150,7 +151,7 @@ class ApprovalServiceTest {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档",
               "内容",
               new float[] {1, 0, 0, 0}));
@@ -165,7 +166,7 @@ class ApprovalServiceTest {
     assertFalse(Files.exists(root.resolve("工作文档/a.txt")));
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("a.txt")));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      assertEquals("UNKNOWN", idx.findByPath("待分类/a.txt").orElseThrow().status());
+      assertEquals(FileStatus.UNKNOWN, idx.findByPath("待分类/a.txt").orElseThrow().status());
     }
     assertTrue(CategoryTree.load(RepoPaths.categoriesYaml(root)).find("工作文档").isEmpty());
   }
@@ -192,7 +193,7 @@ class ApprovalServiceTest {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档/报告",
               "内容",
               new float[] {1, 0, 0, 0}));
@@ -230,7 +231,7 @@ class ApprovalServiceTest {
               "h",
               1L,
               2L,
-              "PENDING",
+              FileStatus.PENDING,
               "",
               "内容甲",
               new float[] {1, 0, 0, 0}));
@@ -242,7 +243,7 @@ class ApprovalServiceTest {
               "h",
               1L,
               2L,
-              "PENDING",
+              FileStatus.PENDING,
               "",
               "内容乙",
               new float[] {1, 0, 0, 0}));
@@ -259,7 +260,7 @@ class ApprovalServiceTest {
     assertTrue(Files.exists(root.resolve("工作文档/甲.txt")));
     assertTrue(Files.exists(root.resolve("工作文档/乙.txt")));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      assertEquals("INDEXED", idx.findByPath("工作文档/甲.txt").orElseThrow().status());
+      assertEquals(FileStatus.INDEXED, idx.findByPath("工作文档/甲.txt").orElseThrow().status());
       assertEquals("工作文档", idx.findByPath("工作文档/甲.txt").orElseThrow().candidatePath());
       assertTrue(idx.findByPath("待分类/乙.txt").isEmpty());
     }

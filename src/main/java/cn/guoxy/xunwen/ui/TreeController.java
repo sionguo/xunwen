@@ -2,6 +2,7 @@ package cn.guoxy.xunwen.ui;
 
 import cn.guoxy.xunwen.classify.ColdStartSampler;
 import cn.guoxy.xunwen.classify.TreeProposer;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.pipeline.ApprovalService;
@@ -132,7 +133,7 @@ public class TreeController implements PageAware {
           CategoryTree t = CategoryTree.load(RepoPaths.categoriesYaml(repo));
           Map<String, Long> counts = new LinkedHashMap<>();
           try (RepoIndex idx = RepoIndex.openReadOnly(RepoPaths.indexDir(repo))) {
-            for (StoredDoc d : idx.byStatus("INDEXED", 100_000)) {
+            for (StoredDoc d : idx.byStatus(FileStatus.INDEXED, 100_000)) {
               counts.merge(d.categoryPath(), 1L, Long::sum);
             }
           }

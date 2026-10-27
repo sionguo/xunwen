@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.Category;
@@ -67,7 +68,7 @@ class FileProcessorTest {
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       // LLM conf=0.936 但向量 top1=其他 → 钳 0.468 < 0.5 → 待分类（状态 UNKNOWN）
       assertEquals(root.resolve("待分类/报告.txt"), r.dest());
-      assertEquals("UNKNOWN", r.status());
+      assertEquals(FileStatus.UNKNOWN, r.status());
     }
   }
 
@@ -88,7 +89,7 @@ class FileProcessorTest {
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       // 向量 top1=工作文档 与 LLM 一致 → conf=0.936 ≥ 0.85 → 自动归位
       assertEquals(root.resolve("工作文档/报告.txt"), r.dest());
-      assertEquals("INDEXED", r.status());
+      assertEquals(FileStatus.INDEXED, r.status());
       // 分类元数据写入索引（待审页直接读，不再重新调 LLM）
       var stored = index.findByPath("工作文档/报告.txt").orElseThrow();
       assertEquals(0.936, stored.confidence(), 0.01);
@@ -143,7 +144,7 @@ class FileProcessorTest {
 
       FileProcessor.Result r = processor.commit(p, index);
       assertEquals(root.resolve("工作文档/报告.txt"), r.dest());
-      assertEquals("INDEXED", r.status());
+      assertEquals(FileStatus.INDEXED, r.status());
       // 候选类别写入索引（待审预选数据源）
       assertEquals("工作文档", index.findByPath("工作文档/报告.txt").orElseThrow().candidatePath());
       // 已入库的新路径再次 prepare：去重命中返回 null（中断续跑）
@@ -171,7 +172,7 @@ class FileProcessorTest {
           new FileProcessor(root, CFG, llm, ex)
               .process(src, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertNull(r.dest());
-      assertEquals("DUPLICATE", r.status());
+      assertEquals(FileStatus.DUPLICATE, r.status());
     }
   }
 
@@ -192,7 +193,7 @@ class FileProcessorTest {
                 "h" + i,
                 1L,
                 2L,
-                "INDEXED",
+                FileStatus.INDEXED,
                 "工作文档",
                 "种子内容 " + i,
                 new float[] {1, 0, 0, 0}));
@@ -209,7 +210,7 @@ class FileProcessorTest {
       FileProcessor.Result r =
           processor.process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertEquals(root.resolve("工作文档/新报告.txt"), r.dest());
-      assertEquals("INDEXED", r.status());
+      assertEquals(FileStatus.INDEXED, r.status());
     }
   }
 
@@ -229,7 +230,7 @@ class FileProcessorTest {
                 "h",
                 1L,
                 2L,
-                "INDEXED",
+                FileStatus.INDEXED,
                 "工作文档",
                 "内容",
                 new float[] {1, 0, 0, 0}));
@@ -246,7 +247,7 @@ class FileProcessorTest {
       FileProcessor.Result r =
           processor.process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertEquals(root.resolve("工作文档/新文件.txt"), r.dest());
-      assertEquals("INDEXED", r.status());
+      assertEquals(FileStatus.INDEXED, r.status());
     }
   }
 }

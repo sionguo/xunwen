@@ -22,7 +22,7 @@ public final class HybridSearcher {
       String path,
       String name,
       String categoryPath,
-      String status,
+      FileStatus status,
       String highlight,
       double score) {}
 
@@ -37,7 +37,7 @@ public final class HybridSearcher {
       String path,
       String name,
       String category,
-      String status,
+      FileStatus status,
       String content) {}
 
   public static List<Hit> search(

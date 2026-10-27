@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.Category;
@@ -96,7 +97,7 @@ class IngestTaskTest {
               "hash-x",
               Files.getLastModifiedTime(pending).toMillis(),
               Files.size(pending),
-              "PENDING",
+              FileStatus.PENDING,
               "",
               "低置信内容",
               new float[] {1, 0, 0, 0}));
@@ -105,7 +106,7 @@ class IngestTaskTest {
     new IngestTask(root, CFG, fakeLlm(), fakeExtractor()).sync();
 
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      assertEquals("PENDING", idx.findByPath("待分类/a.txt").orElseThrow().status());
+      assertEquals(FileStatus.PENDING, idx.findByPath("待分类/a.txt").orElseThrow().status());
     }
   }
 
@@ -138,7 +139,7 @@ class IngestTaskTest {
     task.sync();
     assertTrue(Files.exists(pending.resolve("遗留文件.txt"))); // 未被改名/移动
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      assertEquals("UNKNOWN", idx.findByPath("待分类/遗留文件.txt").orElseThrow().status());
+      assertEquals(FileStatus.UNKNOWN, idx.findByPath("待分类/遗留文件.txt").orElseThrow().status());
     }
 
     assertEquals(0, task.sync().touched()); // 第二轮：已入库，不再重复处理

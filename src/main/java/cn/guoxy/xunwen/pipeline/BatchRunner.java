@@ -1,6 +1,7 @@
 package cn.guoxy.xunwen.pipeline;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
+import cn.guoxy.xunwen.index.FileStatus;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -92,7 +93,7 @@ public final class BatchRunner {
           p = futures.get(i).get();
         } catch (ExecutionException e) {
           // prepare 阶段异常（如文件读取失败）：按失败计数，不中断整批
-          stats.add(new FileProcessor.Result(null, "FAILED"));
+          stats.add(new FileProcessor.Result(null, FileStatus.FAILED));
           progress.onProgress(++done, total, files.get(i).toString());
           continue;
         } catch (InterruptedException e) {

@@ -2,6 +2,7 @@ package cn.guoxy.xunwen.classify;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
 import cn.guoxy.xunwen.repo.Category;
@@ -31,7 +32,14 @@ class CategoryProposerTest {
   /** 待审页读出的 UNKNOWN 文档：提议/理由已在入库时写入索引。 */
   private static StoredDoc unknown(String proposed) {
     return new StoredDoc(
-        "待分类/" + proposed + ".txt", proposed + ".txt", "", "UNKNOWN", "内容", proposed, "理由", 0.1);
+        "待分类/" + proposed + ".txt",
+        proposed + ".txt",
+        "",
+        FileStatus.UNKNOWN,
+        "内容",
+        proposed,
+        "理由",
+        0.1);
   }
 
   @Test

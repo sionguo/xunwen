@@ -1,6 +1,7 @@
 package cn.guoxy.xunwen.ui;
 
 import cn.guoxy.xunwen.classify.CategoryProposer;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
@@ -48,7 +49,7 @@ public class PendingController {
   private void initialize() {
     nameCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().doc().name()));
     statusCol.setCellValueFactory(
-        d -> new SimpleStringProperty(StatusLabels.of(d.getValue().doc().status())));
+        d -> new SimpleStringProperty(d.getValue().doc().status().label()));
     // 状态渲染成徽标（黄=待审、红=未知），与总览统计卡同色语义
     statusCol.setCellFactory(
         col ->
@@ -146,8 +147,8 @@ public class PendingController {
           List<StoredDoc> unknown;
           // 只读不进 engineLock：批量任务进行中也能即时刷新（读已提交快照）
           try (RepoIndex idx = RepoIndex.openReadOnly(RepoPaths.indexDir(repo))) {
-            pending = idx.byStatus("PENDING", 10_000);
-            unknown = idx.byStatus("UNKNOWN", 10_000);
+            pending = idx.byStatus(FileStatus.PENDING, 10_000);
+            unknown = idx.byStatus(FileStatus.UNKNOWN, 10_000);
           }
           CategoryTree tree =
               Files.exists(RepoPaths.categoriesYaml(repo))

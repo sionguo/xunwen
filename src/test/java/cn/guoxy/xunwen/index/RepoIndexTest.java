@@ -14,7 +14,8 @@ import org.junit.jupiter.api.io.TempDir;
 class RepoIndexTest {
 
   private Doc doc(String path, String name, String content, float[] vec) {
-    return new Doc(path, name, "pdf", "hash-" + path, 1L, 2L, "INDEXED", "工作文档", content, vec);
+    return new Doc(
+        path, name, "pdf", "hash-" + path, 1L, 2L, FileStatus.INDEXED, "工作文档", content, vec);
   }
 
   @Test
@@ -68,7 +69,16 @@ class RepoIndexTest {
     try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(
           new Doc(
-              "p.pdf", "p.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {1, 0, 0, 0}));
+              "p.pdf",
+              "p.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              FileStatus.PENDING,
+              "",
+              "c",
+              new float[] {1, 0, 0, 0}));
       idx.upsert(
           new Doc(
               "q.pdf",
@@ -77,12 +87,12 @@ class RepoIndexTest {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档",
               "c",
               new float[] {0, 1, 0, 0}));
-      assertEquals(1, idx.byStatus("PENDING", 10).size());
-      assertEquals("p.pdf", idx.byStatus("PENDING", 10).get(0).path());
+      assertEquals(1, idx.byStatus(FileStatus.PENDING, 10).size());
+      assertEquals("p.pdf", idx.byStatus(FileStatus.PENDING, 10).get(0).path());
       assertEquals(2, idx.all().size());
     }
   }
@@ -98,7 +108,7 @@ class RepoIndexTest {
               "h",
               1L,
               2L,
-              "UNKNOWN",
+              FileStatus.UNKNOWN,
               "",
               "内容",
               new float[] {1, 0, 0, 0},
@@ -114,7 +124,16 @@ class RepoIndexTest {
       // 老条目（无元数据字段）读出时取默认值
       idx.upsert(
           new Doc(
-              "q.pdf", "q.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {0, 1, 0, 0}));
+              "q.pdf",
+              "q.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              FileStatus.PENDING,
+              "",
+              "c",
+              new float[] {0, 1, 0, 0}));
       StoredDoc old = idx.findByPath("q.pdf").orElseThrow();
       assertEquals("", old.proposed());
       assertEquals(0.0, old.confidence());
@@ -127,7 +146,16 @@ class RepoIndexTest {
     try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(
           new Doc(
-              "p.pdf", "p.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {1, 0, 0, 0}));
+              "p.pdf",
+              "p.pdf",
+              "pdf",
+              "h",
+              1L,
+              2L,
+              FileStatus.PENDING,
+              "",
+              "c",
+              new float[] {1, 0, 0, 0}));
       idx.upsert(
           new Doc(
               "q.pdf",
@@ -136,7 +164,7 @@ class RepoIndexTest {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档",
               "c",
               new float[] {0, 1, 0, 0}));
@@ -148,13 +176,13 @@ class RepoIndexTest {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "其他",
               "c",
               new float[] {0, 0, 1, 0}));
       var counts = idx.countByStatus();
-      assertEquals(2L, counts.get("INDEXED"));
-      assertEquals(1L, counts.get("PENDING"));
+      assertEquals(2L, counts.get(FileStatus.INDEXED));
+      assertEquals(1L, counts.get(FileStatus.PENDING));
     }
   }
 
@@ -209,7 +237,7 @@ class RepoIndexTest {
     try (RepoIndex idx = RepoIndex.openReadOnly(missing)) {
       assertFalse(Files.exists(missing)); // 只读零副作用：不创建目录
       assertTrue(idx.all().isEmpty());
-      assertTrue(idx.byStatus("PENDING", 10).isEmpty());
+      assertTrue(idx.byStatus(FileStatus.PENDING, 10).isEmpty());
       assertTrue(idx.countByStatus().isEmpty());
       assertTrue(idx.findByPath("x.pdf").isEmpty());
     }
@@ -226,7 +254,7 @@ class RepoIndexTest {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档",
               "内容",
               new float[] {1, 0, 0, 0}));
@@ -238,13 +266,22 @@ class RepoIndexTest {
               "h",
               1L,
               2L,
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档",
               "内容",
               new float[] {0.9f, 0.1f, 0, 0}));
       idx.upsert(
           new Doc(
-              "c.txt", "c.txt", "txt", "h", 1L, 2L, "PENDING", "", "内容", new float[] {1, 0, 0, 0}));
+              "c.txt",
+              "c.txt",
+              "txt",
+              "h",
+              1L,
+              2L,
+              FileStatus.PENDING,
+              "",
+              "内容",
+              new float[] {1, 0, 0, 0}));
       var neighbors = idx.knnNeighbors(new float[] {1, 0, 0, 0}, 8);
       assertEquals(2, neighbors.size()); // PENDING/无类别邻居被过滤
       assertEquals("工作文档", neighbors.getFirst().categoryPath());
@@ -262,7 +299,7 @@ class RepoIndexTest {
               "h",
               1L,
               2L,
-              "PENDING",
+              FileStatus.PENDING,
               "",
               "原始内容",
               new float[] {0, 1, 0, 0},
@@ -273,11 +310,11 @@ class RepoIndexTest {
       Path dest = dir.resolve("归档/p.pdf");
       Files.createDirectories(dest.getParent());
       Files.writeString(dest, "文件本体");
-      idx.relocate("待分类/p.pdf", "归档/p.pdf", dest, "hash2", "INDEXED", "工作文档");
+      idx.relocate("待分类/p.pdf", "归档/p.pdf", dest, "hash2", FileStatus.INDEXED, "工作文档");
 
       // 处置与落点更新；候选即最终归类
       StoredDoc d = idx.findByPath("归档/p.pdf").orElseThrow();
-      assertEquals("INDEXED", d.status());
+      assertEquals(FileStatus.INDEXED, d.status());
       assertEquals("工作文档", d.categoryPath());
       assertEquals("工作文档", d.candidatePath());
       // 保留：内容与分类元数据

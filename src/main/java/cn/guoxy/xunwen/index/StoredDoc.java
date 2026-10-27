@@ -5,7 +5,7 @@ public record StoredDoc(
     String path,
     String name,
     String categoryPath,
-    String status,
+    FileStatus status,
     String content,
     String proposed,
     String reason,
@@ -19,7 +19,8 @@ public record StoredDoc(
   }
 
   /** 兼容只关心基础字段的调用点。 */
-  public StoredDoc(String path, String name, String categoryPath, String status, String content) {
+  public StoredDoc(
+      String path, String name, String categoryPath, FileStatus status, String content) {
     this(path, name, categoryPath, status, content, "", "", 0.0, "");
   }
 
@@ -28,7 +29,7 @@ public record StoredDoc(
       String path,
       String name,
       String categoryPath,
-      String status,
+      FileStatus status,
       String content,
       String proposed,
       String reason,

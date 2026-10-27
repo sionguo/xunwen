@@ -6,6 +6,7 @@ import cn.guoxy.xunwen.classify.ColdStartSampler;
 import cn.guoxy.xunwen.classify.TreeProposer;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.TikaExtractor;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.HybridSearcher;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
@@ -137,16 +138,16 @@ class RealLlmPipelineIT {
     new IngestTask(root, CFG, llm, extractor).ingest(List.of(newcomer));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var all = new java.util.ArrayList<StoredDoc>();
-      all.addAll(idx.byStatus("INDEXED", 100));
-      all.addAll(idx.byStatus("UNKNOWN", 100));
-      all.addAll(idx.byStatus("PENDING", 100));
+      all.addAll(idx.byStatus(FileStatus.INDEXED, 100));
+      all.addAll(idx.byStatus(FileStatus.UNKNOWN, 100));
+      all.addAll(idx.byStatus(FileStatus.PENDING, 100));
       assertTrue(all.stream().anyMatch(d -> d.name().equals("数据中台建设规划.txt")), "新文件应入库");
     }
 
     // 5. 若有待分类文件，人工归位后应为 INDEXED
     List<StoredDoc> unknown;
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      unknown = idx.byStatus("UNKNOWN", 100);
+      unknown = idx.byStatus(FileStatus.UNKNOWN, 100);
     }
     if (!unknown.isEmpty()) {
       String fname = unknown.getFirst().name();
@@ -157,8 +158,8 @@ class RealLlmPipelineIT {
       try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
         // approve 移动后索引路径更新为新落点,按文件名查
         assertEquals(
-            "INDEXED",
-            idx.byStatus("INDEXED", 100).stream()
+            FileStatus.INDEXED,
+            idx.byStatus(FileStatus.INDEXED, 100).stream()
                 .filter(d -> d.name().equals(fname))
                 .findFirst()
                 .orElseThrow()

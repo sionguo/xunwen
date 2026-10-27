@@ -1,5 +1,6 @@
 package cn.guoxy.xunwen.ui;
 
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Files;
@@ -117,7 +118,7 @@ public class DashboardController {
     Fx.runAsync(
         () -> {
           // 所有仓库的生命周期与待审数（驾驶舱数据）；只读不进 engineLock，未初始化仓库得空视图
-          Map<Path, Map<String, Long>> perRepo = new LinkedHashMap<>();
+          Map<Path, Map<FileStatus, Long>> perRepo = new LinkedHashMap<>();
           for (Path r : repos) {
             try (RepoIndex idx = RepoIndex.openReadOnly(RepoPaths.indexDir(r))) {
               perRepo.put(r, idx.countByStatus());
@@ -129,9 +130,10 @@ public class DashboardController {
           // 仓库任务一览
           List<RepoRow> rows = new ArrayList<>();
           for (Path p : repos) {
-            Map<String, Long> counts = r.getOrDefault(p, Map.of());
+            Map<FileStatus, Long> counts = r.getOrDefault(p, Map.of());
             long attention =
-                counts.getOrDefault("PENDING", 0L) + counts.getOrDefault("UNKNOWN", 0L);
+                counts.getOrDefault(FileStatus.PENDING, 0L)
+                    + counts.getOrDefault(FileStatus.UNKNOWN, 0L);
             String stateText;
             if (p.equals(repo)) {
               stateText = "● 当前打开";
@@ -144,12 +146,12 @@ public class DashboardController {
           }
           repoTable.setItems(FXCollections.observableArrayList(rows)); // 拷贝为可变列表
           // 当前仓库统计卡
-          Map<String, Long> counts = repo == null ? Map.of() : r.getOrDefault(repo, Map.of());
+          Map<FileStatus, Long> counts = repo == null ? Map.of() : r.getOrDefault(repo, Map.of());
           statTotal.setText(
               String.valueOf(counts.values().stream().mapToLong(Long::longValue).sum()));
-          statIndexed.setText(String.valueOf(counts.getOrDefault("INDEXED", 0L)));
-          statPending.setText(String.valueOf(counts.getOrDefault("PENDING", 0L)));
-          statUnknown.setText(String.valueOf(counts.getOrDefault("UNKNOWN", 0L)));
+          statIndexed.setText(String.valueOf(counts.getOrDefault(FileStatus.INDEXED, 0L)));
+          statPending.setText(String.valueOf(counts.getOrDefault(FileStatus.PENDING, 0L)));
+          statUnknown.setText(String.valueOf(counts.getOrDefault(FileStatus.UNKNOWN, 0L)));
         },
         t -> Fx.error("加载总览失败", t));
   }

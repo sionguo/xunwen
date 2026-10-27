@@ -125,7 +125,7 @@ public final class RepoIndex implements AutoCloseable {
     doc.add(new StringField(F_HASH, d.hash(), Store.YES));
     doc.add(new StoredField(F_MTIME, d.mtime()));
     doc.add(new StoredField(F_SIZE, d.size()));
-    doc.add(new StringField(F_STATUS, d.status(), Store.YES));
+    doc.add(new StringField(F_STATUS, d.status().name(), Store.YES));
     doc.add(new StringField(F_CATEGORY, d.categoryPath(), Store.YES));
     doc.add(new TextField(F_CONTENT, d.content(), Store.YES));
     doc.add(new StringField(F_PROPOSED, d.proposed(), Store.YES));
@@ -152,7 +152,7 @@ public final class RepoIndex implements AutoCloseable {
    * 现算，hash/status/categoryPath 由调用方给定，候选类别即最终归类。 条目不存在时抛出——归位对象必须已入库，静默造空条目会掩盖不一致。
    */
   public void relocate(
-      String oldRel, String newRel, Path dest, String hash, String status, String categoryPath)
+      String oldRel, String newRel, Path dest, String hash, FileStatus status, String categoryPath)
       throws IOException {
     TopDocs hit = search(new TermQuery(new Term(F_PATH, oldRel)), 1);
     if (hit.scoreDocs.length == 0) {
@@ -249,8 +249,8 @@ public final class RepoIndex implements AutoCloseable {
   }
 
   /** 按状态检索待审列表（PENDING/UNKNOWN），返回存储字段。 */
-  public List<StoredDoc> byStatus(String status, int limit) throws IOException {
-    return storedOf(search(new TermQuery(new Term(F_STATUS, status)), limit).scoreDocs);
+  public List<StoredDoc> byStatus(FileStatus status, int limit) throws IOException {
+    return storedOf(search(new TermQuery(new Term(F_STATUS, status.name())), limit).scoreDocs);
   }
 
   /** 全量存储文档（单 reader 内检索 + 读存储字段）。 */
@@ -269,17 +269,17 @@ public final class RepoIndex implements AutoCloseable {
   }
 
   /** 状态分布统计（总览页）：status → 数量，保持首次出现顺序。 */
-  public Map<String, Long> countByStatus() throws IOException {
+  public Map<FileStatus, Long> countByStatus() throws IOException {
     IndexReader reader = reader();
     if (reader == null) {
       return new LinkedHashMap<>(); // 全新索引尚无 segments 文件：空统计
     }
     TopDocs all =
         new IndexSearcher(reader).search(MatchAllDocsQuery.INSTANCE, Math.max(1, reader.numDocs()));
-    Map<String, Long> out = new LinkedHashMap<>();
+    Map<FileStatus, Long> out = new LinkedHashMap<>();
     for (ScoreDoc hit : all.scoreDocs) {
-      String s = reader.storedFields().document(hit.doc, Set.of(F_STATUS)).get(F_STATUS);
-      out.merge(s == null ? "" : s, 1L, Long::sum);
+      String raw = reader.storedFields().document(hit.doc, Set.of(F_STATUS)).get(F_STATUS);
+      out.merge(FileStatus.fromLucene(raw), 1L, Long::sum);
     }
     return out;
   }
@@ -312,7 +312,7 @@ public final class RepoIndex implements AutoCloseable {
     List<Neighbor> out = new ArrayList<>();
     for (ScoreDoc hit : top.scoreDocs) {
       Document d = reader.storedFields().document(hit.doc, Set.of(F_STATUS, F_CATEGORY));
-      if ("INDEXED".equals(d.get(F_STATUS)) && !d.get(F_CATEGORY).isBlank()) {
+      if (FileStatus.INDEXED.name().equals(d.get(F_STATUS)) && !d.get(F_CATEGORY).isBlank()) {
         out.add(new Neighbor(d.get(F_CATEGORY), hit.score));
       }
     }
@@ -345,7 +345,7 @@ public final class RepoIndex implements AutoCloseable {
         d.get(F_PATH),
         d.get(F_NAME),
         d.get(F_CATEGORY),
-        d.get(F_STATUS),
+        FileStatus.fromLucene(d.get(F_STATUS)),
         d.get(F_CONTENT),
         d.get(F_PROPOSED),
         d.get(F_REASON),

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.Category;
@@ -65,7 +66,7 @@ class ReshuffleTaskTest {
     new ReshuffleTask(root, CFG, unknown, fakeExtractor()).run(BatchRunner.Progress.noop());
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("神秘文件.bin")));
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      assertEquals("UNKNOWN", idx.findByPath("待分类/神秘文件.bin").orElseThrow().status());
+      assertEquals(FileStatus.UNKNOWN, idx.findByPath("待分类/神秘文件.bin").orElseThrow().status());
     }
   }
 
@@ -122,7 +123,7 @@ class ReshuffleTaskTest {
               "h",
               Files.getLastModifiedTime(misplaced).toMillis(),
               Files.size(misplaced),
-              "INDEXED",
+              FileStatus.INDEXED,
               "工作文档",
               "内容",
               new float[] {1, 0, 0, 0}));
@@ -162,7 +163,7 @@ class ReshuffleTaskTest {
               "h",
               1L,
               2L,
-              "UNKNOWN",
+              FileStatus.UNKNOWN,
               "",
               "内容",
               new float[] {1, 0, 0, 0}));
@@ -173,7 +174,7 @@ class ReshuffleTaskTest {
 
     assertTrue(Files.exists(root.resolve("工作文档/卡住.txt"))); // 从待分类救出
     try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
-      assertEquals("INDEXED", idx.findByPath("工作文档/卡住.txt").orElseThrow().status());
+      assertEquals(FileStatus.INDEXED, idx.findByPath("工作文档/卡住.txt").orElseThrow().status());
     }
     assertEquals(1, stats.indexed());
     assertEquals(0, stats.unknown());

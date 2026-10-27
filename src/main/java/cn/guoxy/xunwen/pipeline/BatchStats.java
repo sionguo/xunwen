@@ -1,5 +1,6 @@
 package cn.guoxy.xunwen.pipeline;
 
+import cn.guoxy.xunwen.index.FileStatus;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,17 +20,17 @@ public final class BatchStats {
 
   public BatchStats add(FileProcessor.Result r) {
     if (r == null || r.dest() == null) {
-      switch (r == null ? "FAILED" : r.status()) {
-        case "ALREADY_INDEXED" -> alreadyIndexed++;
-        case "DUPLICATE" -> duplicates++;
+      switch (r == null ? FileStatus.FAILED : r.status()) {
+        case ALREADY_INDEXED -> alreadyIndexed++;
+        case DUPLICATE -> duplicates++;
         default -> failed++;
       }
       return this;
     }
     switch (r.status()) {
-      case "INDEXED" -> indexed++;
-      case "PENDING" -> pending++;
-      case "UNKNOWN" -> unknown++;
+      case INDEXED -> indexed++;
+      case PENDING -> pending++;
+      case UNKNOWN -> unknown++;
       default -> failed++;
     }
     return this;

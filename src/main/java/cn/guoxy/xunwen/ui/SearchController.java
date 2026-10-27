@@ -1,5 +1,6 @@
 package cn.guoxy.xunwen.ui;
 
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.HybridSearcher;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
@@ -125,8 +126,7 @@ public class SearchController implements PageAware {
     flow.getChildren().add(title);
     String where = hit.categoryPath().isBlank() ? "待分类" : hit.categoryPath();
     Text meta =
-        new Text(
-            "   " + where + " · " + StatusLabels.of(hit.status()) + " · " + hit.repoName() + "\n");
+        new Text("   " + where + " · " + hit.status().label() + " · " + hit.repoName() + "\n");
     meta.getStyleClass().add("hit-meta");
     flow.getChildren().add(meta);
     for (Highlighter.Segment seg : Highlighter.parse(hit.highlight())) {
@@ -218,10 +218,11 @@ public class SearchController implements PageAware {
               RepoIndex idx = RepoIndex.openReadOnly(idxDir); // 不抢写锁：与批量任务并发
               indices.put(repoName, idx);
               repoRootByName.put(repoName, repo);
-              for (String status : List.of("INDEXED", "PENDING", "UNKNOWN")) {
+              for (FileStatus status :
+                  List.of(FileStatus.INDEXED, FileStatus.PENDING, FileStatus.UNKNOWN)) {
                 for (StoredDoc d : idx.byStatus(status, 10_000)) {
                   cats.merge(displayCategory(d.categoryPath()), 1L, Long::sum);
-                  sts.merge(StatusLabels.of(d.status()), 1L, Long::sum);
+                  sts.merge(d.status().label(), 1L, Long::sum);
                   if (docs.size() < BROWSE_CAP) {
                     docs.add(toBrowseHit(repoName, d));
                   }
@@ -295,7 +296,7 @@ public class SearchController implements PageAware {
       stCounts = new LinkedHashMap<>();
       for (HybridSearcher.Hit h : allHits) {
         catCounts.merge(displayCategory(h.categoryPath()), 1L, Long::sum);
-        stCounts.merge(StatusLabels.of(h.status()), 1L, Long::sum);
+        stCounts.merge(h.status().label(), 1L, Long::sum);
       }
     } else {
       catCounts = browseCatCounts;
@@ -366,10 +367,7 @@ public class SearchController implements PageAware {
                 h ->
                     activeCategories.isEmpty()
                         || activeCategories.contains(displayCategory(h.categoryPath())))
-            .filter(
-                h ->
-                    activeStatuses.isEmpty()
-                        || activeStatuses.contains(StatusLabels.of(h.status())))
+            .filter(h -> activeStatuses.isEmpty() || activeStatuses.contains(h.status().label()))
             .toList();
     results.getItems().setAll(FXCollections.observableList(view));
     boolean filtered = !activeCategories.isEmpty() || !activeStatuses.isEmpty();

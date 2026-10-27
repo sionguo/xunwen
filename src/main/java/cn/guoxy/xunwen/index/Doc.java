@@ -11,7 +11,7 @@ public record Doc(
     String hash,
     long mtime,
     long size,
-    String status,
+    FileStatus status,
     String categoryPath,
     String content,
     float[] vector,
@@ -28,7 +28,7 @@ public record Doc(
       String hash,
       long mtime,
       long size,
-      String status,
+      FileStatus status,
       String categoryPath,
       String content,
       float[] vector) {

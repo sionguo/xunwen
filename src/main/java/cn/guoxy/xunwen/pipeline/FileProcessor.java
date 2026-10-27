@@ -6,6 +6,7 @@ import cn.guoxy.xunwen.classify.Classifier;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
+import cn.guoxy.xunwen.index.FileStatus;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
 import cn.guoxy.xunwen.llm.LlmClient;
@@ -40,7 +41,7 @@ public final class FileProcessor {
    * 单文件处置结果。dest 非空 = 成功分流（status 为索引状态 INDEXED/PENDING/UNKNOWN）； dest 为空时 status 说明原因：
    * ALREADY_INDEXED（中断续跑）/ DUPLICATE（重复副本留在原处）/ FAILED（提取或移动失败，下轮重试）。
    */
-  public record Result(Path dest, String status) {}
+  public record Result(Path dest, FileStatus status) {}
 
   private final Path repoRoot;
   private final GlobalConfig cfg;
@@ -110,7 +111,7 @@ public final class FileProcessor {
   /** 阶段二：移动 + 入库；返回落点，重复/失败时 dest 为 null 且 status 说明原因。 */
   public Result commit(Prepared p, RepoIndex index) {
     if (p == null) {
-      return new Result(null, "ALREADY_INDEXED");
+      return new Result(null, FileStatus.ALREADY_INDEXED);
     }
     String name = p.src().getFileName().toString();
     try {
@@ -128,18 +129,13 @@ public final class FileProcessor {
       } else {
         FileMover.MoveOutcome moved = mover.move(p.src(), destDir);
         if (moved.result() == FileMover.MoveResult.DUPLICATE_SKIPPED) {
-          return new Result(null, "DUPLICATE"); // 重复副本留在原处（FR-5），不入索引
+          return new Result(null, FileStatus.DUPLICATE); // 重复副本留在原处（FR-5），不入索引
         }
         actual = moved.dest();
         hash = moved.hash();
       }
 
-      String status =
-          switch (outcome.action()) {
-            case AUTO_MOVE -> "INDEXED";
-            case PENDING -> "PENDING";
-            case UNKNOWN -> "UNKNOWN";
-          };
+      FileStatus status = outcome.action().fileStatus();
       // 已入库文件的重新归位（全量重排）：移动后旧位置条目需删除，否则成为孤儿
       // （增量流程文件未入库，delete 为无害 no-op）
       String oldRel = posix(repoRoot.relativize(p.src()));
@@ -168,7 +164,7 @@ public final class FileProcessor {
       // 移动失败（Windows 占用等）或 LLM 传输失败：本批跳过，下轮再处理，不让整批任务崩
       LOG.warn("跳过无法处理的文件: {}", p.src(), e);
     }
-    return new Result(null, "FAILED");
+    return new Result(null, FileStatus.FAILED);
   }
 
   /** 串行完整处理：prepare + commit。 */
