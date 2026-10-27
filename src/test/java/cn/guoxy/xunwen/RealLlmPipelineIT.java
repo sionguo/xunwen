@@ -11,6 +11,7 @@ import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.OpenAiCompatClient;
 import cn.guoxy.xunwen.pipeline.ApprovalService;
+import cn.guoxy.xunwen.pipeline.BatchRunner;
 import cn.guoxy.xunwen.pipeline.IngestTask;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
 import cn.guoxy.xunwen.repo.CategoryTree;
@@ -107,7 +108,7 @@ class RealLlmPipelineIT {
     tree.save(RepoPaths.categoriesYaml(root));
 
     // 2. 重排：文件进一级类别目录或待分类
-    var stats = new ReshuffleTask(root, CFG, llm, extractor).run(ReshuffleTask.Progress.noop());
+    var stats = new ReshuffleTask(root, CFG, llm, extractor).run(BatchRunner.Progress.noop());
     assertEquals(6, stats.touched(), "重排统计应覆盖全部文件：" + stats.summary());
     List<Path> after;
     try (var walk = Files.walk(root)) {

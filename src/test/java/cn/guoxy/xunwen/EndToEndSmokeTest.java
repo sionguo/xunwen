@@ -9,6 +9,7 @@ import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.HybridSearcher;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
+import cn.guoxy.xunwen.pipeline.BatchRunner;
 import cn.guoxy.xunwen.pipeline.IngestTask;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
 import cn.guoxy.xunwen.repo.CategoryTree;
@@ -66,7 +67,7 @@ class EndToEndSmokeTest {
     assertEquals(List.of("工作文档", "工作文档/报告", "其他"), tree.flattenPaths());
 
     // 3. 首次重排
-    var stats = new ReshuffleTask(root, cfg, llm, EXTRACTOR).run(ReshuffleTask.Progress.noop());
+    var stats = new ReshuffleTask(root, cfg, llm, EXTRACTOR).run(BatchRunner.Progress.noop());
     assertTrue(Files.exists(root.resolve("工作文档/季度报告.txt")));
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("发票.txt"))); // UNKNOWN → 待分类
     assertEquals(2, stats.indexed()); // 统计可见：两个高置信文件归档

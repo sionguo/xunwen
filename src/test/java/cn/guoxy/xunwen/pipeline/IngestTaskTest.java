@@ -153,7 +153,7 @@ class IngestTaskTest {
     Path b = root.resolve("乙.txt");
     Files.writeString(b, "内容乙");
     List<String> seen = new java.util.ArrayList<>();
-    ReshuffleTask.Progress progress =
+    BatchRunner.Progress progress =
         (done, total, file) -> seen.add(done + "/" + total + ":" + file);
     new IngestTask(root, CFG, fakeLlm(), fakeExtractor()).sync(progress);
     assertEquals(2, seen.size()); // 每个入库文件一次进度回调

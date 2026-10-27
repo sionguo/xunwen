@@ -5,6 +5,7 @@ import cn.guoxy.xunwen.classify.TreeProposer;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.pipeline.ApprovalService;
+import cn.guoxy.xunwen.pipeline.BatchRunner;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
@@ -338,8 +339,8 @@ public class TreeController implements PageAware {
     progress.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
     setBusy(true, true);
     AtomicBoolean cancelledFlag = new AtomicBoolean(false);
-    ReshuffleTask.Progress listener =
-        new ReshuffleTask.Progress() {
+    BatchRunner.Progress listener =
+        new BatchRunner.Progress() {
           @Override
           public void onProgress(int done, int total, String file) {
             Platform.runLater(

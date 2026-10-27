@@ -44,7 +44,7 @@ class ReshuffleTaskTest {
         .save(RepoPaths.categoriesYaml(root));
 
     var task = new ReshuffleTask(root, CFG, fakeLlm(), fakeExtractor());
-    BatchStats stats = task.run(ReshuffleTask.Progress.noop());
+    BatchStats stats = task.run(BatchRunner.Progress.noop());
 
     assertTrue(Files.exists(root.resolve("工作文档/报告.txt")));
     assertTrue(Files.exists(root.resolve("工作文档/a.pdf")));
@@ -62,7 +62,7 @@ class ReshuffleTaskTest {
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));
     LlmClient unknown = _ -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
-    new ReshuffleTask(root, CFG, unknown, fakeExtractor()).run(ReshuffleTask.Progress.noop());
+    new ReshuffleTask(root, CFG, unknown, fakeExtractor()).run(BatchRunner.Progress.noop());
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("神秘文件.bin")));
     try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
       assertEquals("UNKNOWN", idx.findByPath("待分类/神秘文件.bin").orElseThrow().status());
@@ -72,7 +72,7 @@ class ReshuffleTaskTest {
   @Test
   void missingTreeFails(@TempDir Path root) {
     var task = new ReshuffleTask(root, CFG, fakeLlm(), fakeExtractor());
-    assertThrows(IllegalStateException.class, () -> task.run(ReshuffleTask.Progress.noop()));
+    assertThrows(IllegalStateException.class, () -> task.run(BatchRunner.Progress.noop()));
   }
 
   @Test
@@ -85,7 +85,7 @@ class ReshuffleTaskTest {
           throw new IllegalStateException("LLM chat failed");
         };
     var task = new ReshuffleTask(root, CFG, down, fakeExtractor());
-    BatchStats stats = assertDoesNotThrow(() -> task.run(ReshuffleTask.Progress.noop())); // 跳过而非整批崩
+    BatchStats stats = assertDoesNotThrow(() -> task.run(BatchRunner.Progress.noop())); // 跳过而非整批崩
     assertEquals(1, stats.failed()); // 失败计入统计（可见），不静默
     assertTrue(Files.exists(root.resolve("报告.txt"))); // 留在原处，不进待分类
     try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
@@ -100,9 +100,9 @@ class ReshuffleTaskTest {
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));
     var task = new ReshuffleTask(root, CFG, fakeLlm(), fakeExtractor());
-    task.run(ReshuffleTask.Progress.noop());
+    task.run(BatchRunner.Progress.noop());
     // 中断续跑：第二次运行不重复移动（文件已在类别目录且已索引）
-    assertDoesNotThrow(() -> task.run(ReshuffleTask.Progress.noop()));
+    assertDoesNotThrow(() -> task.run(BatchRunner.Progress.noop()));
     assertTrue(Files.exists(root.resolve("工作文档/报告.txt")));
   }
 
@@ -129,7 +129,7 @@ class ReshuffleTaskTest {
     }
     var task = new ReshuffleTask(root, CFG, fakeLlm(), fakeExtractor());
 
-    BatchStats full = task.run(ReshuffleTask.Progress.noop(), ReshuffleTask.Mode.FULL);
+    BatchStats full = task.run(BatchRunner.Progress.noop(), ReshuffleTask.Mode.FULL);
 
     assertEquals(1, full.indexed(), "summary=" + full.summary() + " failed=" + full.failed());
     assertTrue(Files.exists(root.resolve("工作文档/错位.txt"))); // 重新归位
@@ -142,7 +142,7 @@ class ReshuffleTaskTest {
     }
     assertEquals(1, full.indexed());
     // 增量重排对已入库文件跳过
-    BatchStats inc = task.run(ReshuffleTask.Progress.noop());
+    BatchStats inc = task.run(BatchRunner.Progress.noop());
     assertEquals(1, inc.alreadyIndexed());
   }
 
@@ -169,7 +169,7 @@ class ReshuffleTaskTest {
     }
     var task = new ReshuffleTask(root, CFG, fakeLlm(), fakeExtractor());
 
-    BatchStats stats = task.run(ReshuffleTask.Progress.noop(), ReshuffleTask.Mode.FULL);
+    BatchStats stats = task.run(BatchRunner.Progress.noop(), ReshuffleTask.Mode.FULL);
 
     assertTrue(Files.exists(root.resolve("工作文档/卡住.txt"))); // 从待分类救出
     try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
