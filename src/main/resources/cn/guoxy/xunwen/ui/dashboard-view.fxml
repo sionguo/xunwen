@@ -41,5 +41,9 @@
       <Label text="未知" styleClass="stat-title"/>
       <Label fx:id="statUnknown" text="0" styleClass="stat-value, stat-unknown"/>
     </VBox>
+    <VBox styleClass="stat-card">
+      <Label text="向量服务" styleClass="stat-title"/>
+      <Label fx:id="statVector" text="正常" styleClass="stat-value"/>
+    </VBox>
   </HBox>
 </VBox>

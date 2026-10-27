@@ -167,6 +167,7 @@ public class SearchController implements PageAware {
       return;
     }
     // 搜索是只读操作（只读索引实例），不进 engineLock：批量任务进行中也能即时搜索
+    boolean embedDown = state.queryVector(q) == null; // 预检一次（缓存内免费），降级时结果后提示
     Fx.runAsync(
         () -> doSearch(repos, q),
         hits -> {
@@ -178,6 +179,9 @@ public class SearchController implements PageAware {
           facetHint.setManaged(false);
           buildFacets();
           applyFilters();
+          if (embedDown) {
+            showFacetHint("向量化服务不可用，当前为纯关键词检索");
+          }
           state.activity("搜索「" + q + "」：" + hits.size() + " 个结果");
         },
         t -> Fx.error("搜索失败", t));

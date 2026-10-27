@@ -112,12 +112,25 @@ public final class AppState {
     try {
       vec = llm().embed(query);
     } catch (RuntimeException e) {
+      embedDegraded.set(true); // 单一降级状态源：UI 据此提示纯关键词检索
       return null; // embedding 不可用：调用方退关键词路（不缓存失败）
     }
+    embedDegraded.set(false);
     synchronized (queryVecCache) {
       queryVecCache.put(query, vec);
     }
     return vec;
+  }
+
+  /** 向量化服务最近一次调用结果：true=最近一次失败（降级中）。检索页提示与总览状态卡共用。 */
+  private final BooleanProperty embedDegraded = new SimpleBooleanProperty();
+
+  public BooleanProperty embedDegradedProperty() {
+    return embedDegraded;
+  }
+
+  public boolean embedDegraded() {
+    return embedDegraded.get();
   }
 
   /** 查询向量 LRU 缓存；saveConfig 时整体失效（模型/维度可能已变）。 */

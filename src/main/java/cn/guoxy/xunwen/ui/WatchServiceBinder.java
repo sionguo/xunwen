@@ -8,9 +8,12 @@ import java.util.List;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.util.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** UI 驱动的仓库监视：Timeline 周期 tick，处理新文件并防移动回环（FR-11）。 */
 public final class WatchServiceBinder implements AutoCloseable {
+  private static final Logger LOG = LoggerFactory.getLogger(WatchServiceBinder.class);
   private final AppState state;
   private RepoWatcher watcher;
   private Timeline timeline;
@@ -66,7 +69,7 @@ public final class WatchServiceBinder implements AutoCloseable {
           },
           t -> Fx.error("新文件处理失败", t));
     } catch (Exception e) {
-      // tick 内异常不中断 timeline
+      LOG.warn("监视 tick 异常（不中断 timeline）", e);
     }
   }
 

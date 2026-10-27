@@ -41,6 +41,7 @@ public class DashboardController {
   @FXML private Label statIndexed;
   @FXML private Label statPending;
   @FXML private Label statUnknown;
+  @FXML private Label statVector;
   @FXML private Button addRepoBtn;
 
   public DashboardController(AppState state) {
@@ -50,6 +51,9 @@ public class DashboardController {
   @FXML
   private void initialize() {
     wireRepoTable();
+    // 向量服务状态卡：跟随单一降级状态源（AppState.embedDegraded）
+    statVector.setText(state.embedDegraded() ? "不可用" : "正常");
+    state.embedDegradedProperty().addListener((o, ov, v) -> statVector.setText(v ? "不可用" : "正常"));
     // 待审/未知卡即入口：点击直达待审页（状态即行动）
     if (statPending.getParent() instanceof javafx.scene.layout.VBox pendingCard) {
       pendingCard.getStyleClass().add("stat-clickable");

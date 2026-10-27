@@ -173,10 +173,16 @@ public final class FileProcessor {
   }
 
   /** 文件向量；embed 失败返回 null（向量路旁路），索引入库时再以中性向量兜底。 */
+  private boolean embedWarned; // 每个任务实例只告警一次，批量不刷屏
+
   private float[] embedOrNull(String text) {
     try {
       return embedder.embed(text);
     } catch (RuntimeException e) { // Jackson 3 unchecked / HTTP 服务不可达
+      if (!embedWarned) {
+        embedWarned = true;
+        LOG.warn("embedding 调用失败，本任务后续文件将以无向量方式入库: {}", String.valueOf(e.getMessage()));
+      }
       return null;
     }
   }

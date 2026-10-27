@@ -2,7 +2,10 @@ package cn.guoxy.xunwen.ui;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
 import com.sun.net.httpserver.HttpServer;
@@ -52,6 +55,37 @@ class AppStateTest {
       float[] third = state.queryVector("季度销售报告");
       assertArrayEquals(first, third);
       assertEquals(2, hits.get()); // 缓存已失效，重新请求端点
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void queryVectorFlipsDegradedFlag(@TempDir Path dir) throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+    server.createContext(
+        "/v1/embeddings",
+        exchange -> {
+          exchange.getRequestBody().readAllBytes();
+          byte[] resp =
+              "{\"data\":[{\"index\":0,\"embedding\":[0.5,0.5,0.5,0.5]}]}"
+                  .getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, resp.length);
+          exchange.getResponseBody().write(resp);
+          exchange.close();
+        });
+    server.start();
+    try {
+      String baseUrl = "http://localhost:" + server.getAddress().getPort() + "/v1";
+      AppState state = new AppState(dir.resolve("config.json"), dir.resolve("repos.json"));
+      state.saveConfig(new GlobalConfig("http://localhost:9/v1", "", "m", "e", 4, 0.85, 0.6, 2));
+      assertFalse(state.embedDegraded());
+      assertNull(state.queryVector("不可达查询")); // 端点连接拒绝 → 降级
+      assertTrue(state.embedDegraded());
+      state.saveConfig(new GlobalConfig(baseUrl, "", "m", "e", 4, 0.85, 0.6, 2));
+      assertNotNull(state.queryVector("可达查询"));
+      assertFalse(state.embedDegraded()); // 恢复后标志翻回
     } finally {
       server.stop(0);
     }
