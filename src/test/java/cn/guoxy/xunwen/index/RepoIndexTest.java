@@ -2,10 +2,12 @@ package cn.guoxy.xunwen.index;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.store.LockObtainFailedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,7 +19,7 @@ class RepoIndexTest {
 
   @Test
   void upsertThenFindByPath(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(doc("a/b.pdf", "b.pdf", "季度销售总结报告内容", new float[] {1, 0, 0, 0}));
       idx.upsert(doc("a/b.pdf", "b.pdf", "内容已更新版本二", new float[] {0, 1, 0, 0}));
       Optional<StoredDoc> hit = idx.findByPath("a/b.pdf");
@@ -33,7 +35,7 @@ class RepoIndexTest {
 
   @Test
   void deleteByPathRemoves(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(doc("a.pdf", "a.pdf", "内容", new float[] {1, 0, 0, 0}));
       idx.deleteByPath("a.pdf");
       assertTrue(idx.findByPath("a.pdf").isEmpty());
@@ -42,7 +44,7 @@ class RepoIndexTest {
 
   @Test
   void keywordSearchHitsChineseContent(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(doc("1.pdf", "发票.pdf", "餐饮发票 报销凭证", new float[] {0, 0, 0, 1}));
       idx.upsert(doc("2.pdf", "合同.pdf", "劳动合同 条款", new float[] {0, 0, 1, 0}));
       ScoreDoc[] hits = idx.searchKeyword("发票", 10);
@@ -53,7 +55,7 @@ class RepoIndexTest {
 
   @Test
   void knnSearchReturnsNearest(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(doc("1.pdf", "1.pdf", "c1", new float[] {1, 0, 0, 0}));
       idx.upsert(doc("2.pdf", "2.pdf", "c2", new float[] {0, 1, 0, 0}));
       ScoreDoc[] hits = idx.searchKnn(new float[] {1, 0, 0, 0}, 1).scoreDocs;
@@ -63,7 +65,7 @@ class RepoIndexTest {
 
   @Test
   void byStatusFiltersDocuments(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(
           new Doc(
               "p.pdf", "p.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {1, 0, 0, 0}));
@@ -87,7 +89,7 @@ class RepoIndexTest {
 
   @Test
   void classificationMetadataRoundTrips(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(
           new Doc(
               "p.pdf",
@@ -122,7 +124,7 @@ class RepoIndexTest {
 
   @Test
   void countByStatusAggregates(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(
           new Doc(
               "p.pdf", "p.pdf", "pdf", "h", 1L, 2L, "PENDING", "", "c", new float[] {1, 0, 0, 0}));
@@ -158,7 +160,7 @@ class RepoIndexTest {
 
   @Test
   void uncommittedWritesVisibleToSameInstance(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(doc("a.pdf", "a.pdf", "内容", new float[] {1, 0, 0, 0}));
       idx.deleteByPath("a.pdf");
       assertTrue(idx.findByPath("a.pdf").isEmpty()); // 同实例写后立即可读（NRT）
@@ -168,10 +170,10 @@ class RepoIndexTest {
   @Test
   void closePersistsBatchCommits(@TempDir Path dir) throws Exception {
     Path idxDir = dir.resolve("index");
-    try (RepoIndex idx = new RepoIndex(idxDir)) {
+    try (RepoIndex idx = RepoIndex.openWritable(idxDir)) {
       idx.upsert(doc("a.pdf", "a.pdf", "内容", new float[] {1, 0, 0, 0}));
     } // close 即批次边界：整批一次 commit
-    try (RepoIndex reopen = new RepoIndex(idxDir)) {
+    try (RepoIndex reopen = RepoIndex.openWritable(idxDir)) {
       assertTrue(reopen.findByPath("a.pdf").isPresent());
     }
   }
@@ -190,17 +192,32 @@ class RepoIndexTest {
   void readOnlySearchWorksWhileWritableHoldsLock(@TempDir Path dir) throws Exception {
     // 可写实例持有 Lucene 写锁且未提交变更（模拟批量任务进行中）；
     // 只读实例可并发打开检索，看到的是已提交状态（此处为空索引）
-    try (RepoIndex writable = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex writable = RepoIndex.openWritable(dir.resolve("index"))) {
       writable.upsert(doc("1.pdf", "发票.pdf", "餐饮发票内容", new float[] {1, 0, 0, 0}));
       try (RepoIndex ro = RepoIndex.openReadOnly(dir.resolve("index"))) {
-        assertEquals(0, ro.searchKeyword("发票", 10).length);
+        assertTrue(ro.all().isEmpty());
       }
+      // 单写者互斥的对照面：持锁期间第二个可写打开必须失败（证明上面的只读并发不是假象）
+      assertThrows(
+          LockObtainFailedException.class, () -> RepoIndex.openWritable(dir.resolve("index")));
+    }
+  }
+
+  @Test
+  void readOnlyDoesNotCreateMissingDirectory(@TempDir Path dir) throws Exception {
+    Path missing = dir.resolve("nope");
+    try (RepoIndex idx = RepoIndex.openReadOnly(missing)) {
+      assertFalse(Files.exists(missing)); // 只读零副作用：不创建目录
+      assertTrue(idx.all().isEmpty());
+      assertTrue(idx.byStatus("PENDING", 10).isEmpty());
+      assertTrue(idx.countByStatus().isEmpty());
+      assertTrue(idx.findByPath("x.pdf").isEmpty());
     }
   }
 
   @Test
   void knnNeighborsOnlyCountsIndexedWithCategory(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(
           new Doc(
               "a.txt",

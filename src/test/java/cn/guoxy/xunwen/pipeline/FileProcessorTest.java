@@ -61,7 +61,7 @@ class FileProcessorTest {
     Files.writeString(f, "别的内容");
     ContentExtractor ex = file -> new ContentExtractor.Extracted("别的内容", true);
 
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, new FakeLlm(), ex)
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
@@ -82,7 +82,7 @@ class FileProcessorTest {
     Files.writeString(f, "工作文档相关内容");
     ContentExtractor ex = file -> new ContentExtractor.Extracted("工作文档相关内容", true);
 
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, new FakeLlm(), ex)
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
@@ -109,7 +109,7 @@ class FileProcessorTest {
             """;
     ContentExtractor ex = file -> new ContentExtractor.Extracted("足够长的测试文本内容用于提取流程", true);
 
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, llm, ex)
               .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
@@ -134,7 +134,7 @@ class FileProcessorTest {
             """;
 
     FileProcessor processor = new FileProcessor(root, CFG, llm, ex);
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var tree = CategoryTree.load(RepoPaths.categoriesYaml(root));
       processor.warmVectors(tree); // 并发 prepare 前的预构建
       FileProcessor.Prepared p = processor.prepare(f, tree, index);
@@ -166,7 +166,7 @@ class FileProcessorTest {
             """;
     ContentExtractor ex = file -> new ContentExtractor.Extracted("相同", true);
 
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, llm, ex)
               .process(src, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
@@ -182,7 +182,7 @@ class FileProcessorTest {
         .save(RepoPaths.categoriesYaml(root));
     Path seed = Files.createDirectories(root.resolve("工作文档")).resolve("旧报告.txt");
     Files.writeString(seed, "种子内容");
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       for (int i = 0; i < 4; i++) {
         index.upsert(
             new Doc(
@@ -219,7 +219,7 @@ class FileProcessorTest {
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(root));
     Files.createDirectories(root.resolve("工作文档"));
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       for (int i = 0; i < 3; i++) {
         index.upsert(
             new Doc(

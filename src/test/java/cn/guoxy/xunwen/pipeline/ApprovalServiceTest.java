@@ -37,7 +37,7 @@ class ApprovalServiceTest {
         .save(RepoPaths.categoriesYaml(root));
     Path pending = Files.createDirectories(RepoPaths.pendingDir(root)).resolve("文档.txt");
     Files.writeString(pending, "内容");
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       idx.upsert(
           new Doc(
               "待分类/文档.txt",
@@ -54,7 +54,7 @@ class ApprovalServiceTest {
     new ApprovalService(root, CFG, HIGH_LLM, EX).approve(pending, "工作文档");
 
     assertTrue(Files.exists(root.resolve("工作文档/文档.txt")));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var doc = idx.findByPath("工作文档/文档.txt").orElseThrow();
       assertEquals("INDEXED", doc.status());
       assertEquals("工作文档", doc.categoryPath());
@@ -69,7 +69,7 @@ class ApprovalServiceTest {
     Path unknown = Files.createDirectories(RepoPaths.pendingDir(root)).resolve("发票.txt");
     Files.writeString(unknown, "内容");
     // 先以 UNKNOWN 入索引（模拟已重排的低置信文件）
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       idx.upsert(
           new Doc(
               "待分类/发票.txt",
@@ -97,7 +97,7 @@ class ApprovalServiceTest {
     var updated = CategoryTree.load(RepoPaths.categoriesYaml(root));
     assertTrue(updated.find("发票凭证").isPresent());
     assertTrue(Files.exists(root.resolve("发票凭证/发票.txt"))); // 重分类后移出待分类
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertEquals("INDEXED", idx.findByPath("发票凭证/发票.txt").orElseThrow().status());
     }
   }
@@ -109,7 +109,7 @@ class ApprovalServiceTest {
     Files.createDirectories(root.resolve("工作文档"));
     Path f = root.resolve("工作文档/a.txt");
     Files.writeString(f, "内容");
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       idx.upsert(
           new Doc(
               "工作文档/a.txt",
@@ -132,7 +132,7 @@ class ApprovalServiceTest {
     assertEquals(1, n);
     assertFalse(Files.exists(root.resolve("工作文档/a.txt")));
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("a.txt")));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertEquals("UNKNOWN", idx.findByPath("待分类/a.txt").orElseThrow().status());
     }
     assertTrue(CategoryTree.load(RepoPaths.categoriesYaml(root)).find("工作文档").isEmpty());
@@ -151,7 +151,7 @@ class ApprovalServiceTest {
     Path dir = Files.createDirectories(root.resolve("工作文档/报告"));
     Path f = dir.resolve("a.txt");
     Files.writeString(f, "内容");
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       idx.upsert(
           new Doc(
               "工作文档/报告/a.txt",
@@ -189,7 +189,7 @@ class ApprovalServiceTest {
     Path b = pending.resolve("乙.txt");
     Files.writeString(a, "内容甲");
     Files.writeString(b, "内容乙");
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       idx.upsert(
           new Doc(
               "待分类/甲.txt",
@@ -226,7 +226,7 @@ class ApprovalServiceTest {
     assertEquals(2, n);
     assertTrue(Files.exists(root.resolve("工作文档/甲.txt")));
     assertTrue(Files.exists(root.resolve("工作文档/乙.txt")));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertEquals("INDEXED", idx.findByPath("工作文档/甲.txt").orElseThrow().status());
       assertEquals("工作文档", idx.findByPath("工作文档/甲.txt").orElseThrow().candidatePath());
       assertTrue(idx.findByPath("待分类/乙.txt").isEmpty());

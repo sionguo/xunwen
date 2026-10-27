@@ -76,7 +76,7 @@ public final class AppState {
     }
   }
 
-  /** 所有引擎后台任务的串行化锁:同一时刻只允许一个任务开 RepoIndex(单写者)。 */
+  /** 可写索引会话的互斥锁:同一时刻只允许一个任务 openWritable(单写者);只读走 openReadOnly 不进锁,可与写任务并发。 */
   public Object engineLock() {
     return engineLock;
   }

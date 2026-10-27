@@ -45,7 +45,7 @@ public final class ReshuffleTask {
     FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
     BatchStats stats = new BatchStats();
     List<Path> files = RepoPaths.listRepoFiles(repoRoot, mode == Mode.FULL);
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       processor.warmVectors(tree);
       new BatchRunner(cfg)
           .run(

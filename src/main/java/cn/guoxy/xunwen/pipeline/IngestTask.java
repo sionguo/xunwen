@@ -41,7 +41,7 @@ public final class IngestTask {
     }
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
     BatchStats stats = new BatchStats();
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       for (Path f : newFiles) {
         FileProcessor.Result r = processor.process(f, tree, index);
         stats.add(r);
@@ -73,7 +73,7 @@ public final class IngestTask {
           FileProcessor.posix(repoRoot.relativize(p)), new long[] {ft.toMillis(), Files.size(p)});
       allFiles.add(p);
     }
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       // 1. 索引有、文件系统无 → 清理；指纹不同 → 删旧记录待重处理；存活的路径记入已入库集合
       Set<String> indexed = new HashSet<>();
       int cleaned = 0;

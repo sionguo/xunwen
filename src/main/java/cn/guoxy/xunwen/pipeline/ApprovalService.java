@@ -36,7 +36,7 @@ public final class ApprovalService {
 
   /** 待审文件人工归位：移动 → 索引更新为 INDEXED。 */
   public void approve(Path pendingFile, String categoryPath) throws IOException {
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       approveInto(index, new FileMover(repoRoot), new PendingApproval(pendingFile, categoryPath));
     }
   }
@@ -45,7 +45,7 @@ public final class ApprovalService {
   public int approveBatch(List<PendingApproval> items) throws IOException {
     FileMover mover = new FileMover(repoRoot);
     int count = 0;
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       for (PendingApproval item : items) {
         if (approveInto(index, mover, item)) {
           count++;
@@ -144,7 +144,7 @@ public final class ApprovalService {
     int count = 0;
 
     List<StoredDoc> affected = new ArrayList<>();
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       for (StoredDoc d : index.all()) {
         if (d.categoryPath().equals(categoryPath)
             || d.categoryPath().startsWith(categoryPath + "/")) {
@@ -170,7 +170,7 @@ public final class ApprovalService {
 
   private void reclassifyAllUnknowns(CategoryTree tree) throws IOException {
     FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
-    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
+    try (RepoIndex index = RepoIndex.openWritable(RepoPaths.indexDir(repoRoot))) {
       for (StoredDoc d : index.byStatus("UNKNOWN", 10_000)) {
         index.deleteByPath(d.path()); // 先删索引，让 process 重走完整流程
         Path file = repoRoot.resolve(d.path());

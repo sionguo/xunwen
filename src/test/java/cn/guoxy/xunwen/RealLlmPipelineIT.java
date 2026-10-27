@@ -124,7 +124,7 @@ class RealLlmPipelineIT {
     }
 
     // 3. 索引状态完备：每个文件在索引中有条目
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       for (Path p : after) {
         String rel = root.relativize(p).toString(); // macOS 上即 POSIX 形式
         assertTrue(idx.findByPath(rel).isPresent(), "索引缺失：" + rel);
@@ -135,7 +135,7 @@ class RealLlmPipelineIT {
     Path newcomer = root.resolve("数据中台建设规划.txt");
     Files.writeString(newcomer, "数据中台统一元数据与指标口径，沉淀数仓分层模型，向业务提供自助分析服务。".repeat(8));
     new IngestTask(root, CFG, llm, extractor).ingest(List.of(newcomer));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var all = new java.util.ArrayList<StoredDoc>();
       all.addAll(idx.byStatus("INDEXED", 100));
       all.addAll(idx.byStatus("UNKNOWN", 100));
@@ -145,7 +145,7 @@ class RealLlmPipelineIT {
 
     // 5. 若有待分类文件，人工归位后应为 INDEXED
     List<StoredDoc> unknown;
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       unknown = idx.byStatus("UNKNOWN", 100);
     }
     if (!unknown.isEmpty()) {
@@ -154,7 +154,7 @@ class RealLlmPipelineIT {
           .approve(
               root.resolve(unknown.getFirst().path()),
               paths.stream().filter(p -> !"其他".equals(p)).findFirst().orElse("其他"));
-      try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+      try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
         // approve 移动后索引路径更新为新落点,按文件名查
         assertEquals(
             "INDEXED",
@@ -167,7 +167,7 @@ class RealLlmPipelineIT {
     }
 
     // 6. 混合搜索：真实嵌入 + 关键词双路
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var indices = new LinkedHashMap<String, RepoIndex>();
       indices.put("it-repo", idx);
       float[] qvec = llm.embed("网关限流方案");

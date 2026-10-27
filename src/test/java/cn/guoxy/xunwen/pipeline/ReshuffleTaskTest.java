@@ -49,7 +49,7 @@ class ReshuffleTaskTest {
     assertTrue(Files.exists(root.resolve("工作文档/报告.txt")));
     assertTrue(Files.exists(root.resolve("工作文档/a.pdf")));
     assertFalse(Files.exists(root.resolve("手动目录"))); // 空壳目录已清理
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertTrue(idx.findByPath("工作文档/报告.txt").isPresent());
     }
     assertEquals(2, stats.indexed()); // 统计可见：两个文件全部自动归档
@@ -64,7 +64,7 @@ class ReshuffleTaskTest {
     LlmClient unknown = _ -> "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
     new ReshuffleTask(root, CFG, unknown, fakeExtractor()).run(BatchRunner.Progress.noop());
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("神秘文件.bin")));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertEquals("UNKNOWN", idx.findByPath("待分类/神秘文件.bin").orElseThrow().status());
     }
   }
@@ -88,7 +88,7 @@ class ReshuffleTaskTest {
     BatchStats stats = assertDoesNotThrow(() -> task.run(BatchRunner.Progress.noop())); // 跳过而非整批崩
     assertEquals(1, stats.failed()); // 失败计入统计（可见），不静默
     assertTrue(Files.exists(root.resolve("报告.txt"))); // 留在原处，不进待分类
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertTrue(idx.findByPath("待分类/报告.txt").isEmpty()); // 未被当作 UNKNOWN 入库
       assertTrue(idx.findByPath("工作文档/报告.txt").isEmpty()); // 未被索引
     }
@@ -113,7 +113,7 @@ class ReshuffleTaskTest {
         .save(RepoPaths.categoriesYaml(root));
     Path misplaced = root.resolve("错位.txt");
     Files.writeString(misplaced, "内容");
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       idx.upsert(
           new Doc(
               "错位.txt",
@@ -133,7 +133,7 @@ class ReshuffleTaskTest {
 
     assertEquals(1, full.indexed(), "summary=" + full.summary() + " failed=" + full.failed());
     assertTrue(Files.exists(root.resolve("工作文档/错位.txt"))); // 重新归位
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var all = idx.all();
       assertTrue(
           idx.findByPath("工作文档/错位.txt").isPresent(),
@@ -153,7 +153,7 @@ class ReshuffleTaskTest {
         .save(RepoPaths.categoriesYaml(root));
     Path pending = Files.createDirectories(RepoPaths.pendingDir(root)).resolve("卡住.txt");
     Files.writeString(pending, "内容");
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       idx.upsert(
           new Doc(
               "待分类/卡住.txt",
@@ -172,7 +172,7 @@ class ReshuffleTaskTest {
     BatchStats stats = task.run(BatchRunner.Progress.noop(), ReshuffleTask.Mode.FULL);
 
     assertTrue(Files.exists(root.resolve("工作文档/卡住.txt"))); // 从待分类救出
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       assertEquals("INDEXED", idx.findByPath("工作文档/卡住.txt").orElseThrow().status());
     }
     assertEquals(1, stats.indexed());

@@ -131,7 +131,7 @@ public class TreeController implements PageAware {
         () -> {
           CategoryTree t = CategoryTree.load(RepoPaths.categoriesYaml(repo));
           Map<String, Long> counts = new LinkedHashMap<>();
-          try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(repo))) {
+          try (RepoIndex idx = RepoIndex.openReadOnly(RepoPaths.indexDir(repo))) {
             for (StoredDoc d : idx.byStatus("INDEXED", 100_000)) {
               counts.merge(d.categoryPath(), 1L, Long::sum);
             }

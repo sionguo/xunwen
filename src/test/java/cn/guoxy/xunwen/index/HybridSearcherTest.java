@@ -16,8 +16,8 @@ class HybridSearcherTest {
 
   @Test
   void keywordAndVectorFuseAcrossRepos(@TempDir Path dir) throws Exception {
-    try (RepoIndex a = new RepoIndex(dir.resolve("a"));
-        RepoIndex b = new RepoIndex(dir.resolve("b"))) {
+    try (RepoIndex a = RepoIndex.openWritable(dir.resolve("a"));
+        RepoIndex b = RepoIndex.openWritable(dir.resolve("b"))) {
       seed(a, "x.txt", "销售总结.txt", "本季度销售业绩总结：营收增长百分之二十。", new float[] {1, 0, 0, 0});
       seed(b, "y.txt", "合同.txt", "劳动合同条款一览。", new float[] {0, 0, 1, 0});
 
@@ -37,7 +37,7 @@ class HybridSearcherTest {
 
   @Test
   void rrfCombinesWhenDocHitsBothPaths(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = new RepoIndex(dir.resolve("a"))) {
+    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("a"))) {
       // 内容同时匹配关键词且向量最近
       seed(idx, "both.txt", "both.txt", "机器学习入门笔记", new float[] {1, 0, 0, 0});
       seed(idx, "kw.txt", "kw.txt", "机器学习进阶路线", new float[] {0, 1, 0, 0});

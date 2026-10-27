@@ -80,7 +80,7 @@ class EndToEndSmokeTest {
     assertTrue(Files.exists(root.resolve("工作文档/新通知.txt")));
 
     // 5. 混合搜索（fake LLM 无嵌入能力，文档向量由单位向量兜底；查询侧零向量故仅关键词路生效）
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(root))) {
       var indices = new LinkedHashMap<String, RepoIndex>();
       indices.put("测试仓库", idx);
       var hits = HybridSearcher.search(indices, "通知", new float[] {0, 0, 0, 0}, 10);

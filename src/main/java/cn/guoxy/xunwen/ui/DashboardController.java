@@ -114,19 +114,13 @@ public class DashboardController {
     Path repo = state.currentRepo();
     repoHint.setText(repo == null ? "未打开仓库——在下方「仓库任务」里选一个开始" : "当前仓库：" + repo.getFileName());
     List<Path> repos = List.copyOf(state.reposProperty());
-    Fx.runEngine(
-        state,
+    Fx.runAsync(
         () -> {
-          // 所有仓库的生命周期与待审数（驾驶舱数据）；未初始化仓库不触碰索引（避免无谓建目录）
+          // 所有仓库的生命周期与待审数（驾驶舱数据）；只读不进 engineLock，未初始化仓库得空视图
           Map<Path, Map<String, Long>> perRepo = new LinkedHashMap<>();
           for (Path r : repos) {
-            Path idxDir = RepoPaths.indexDir(r);
-            if (Files.exists(idxDir)) {
-              try (RepoIndex idx = new RepoIndex(idxDir)) {
-                perRepo.put(r, idx.countByStatus());
-              }
-            } else {
-              perRepo.put(r, Map.of());
+            try (RepoIndex idx = RepoIndex.openReadOnly(RepoPaths.indexDir(r))) {
+              perRepo.put(r, idx.countByStatus());
             }
           }
           return perRepo;

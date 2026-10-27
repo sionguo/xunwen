@@ -44,7 +44,7 @@ class DashboardViewTest extends ViewTestBase {
     neutral[0] = 1f; // Lucene COSINE 拒绝全零向量，测试数据用单位向量兜底（与引擎一致）
     new CategoryTree(List.of(new Category("工作文档", "", List.of())))
         .save(RepoPaths.categoriesYaml(repo));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(repo))) {
+    try (RepoIndex idx = RepoIndex.openWritable(RepoPaths.indexDir(repo))) {
       idx.upsert(
           new Doc(
               "工作文档/a.txt",

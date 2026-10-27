@@ -140,12 +140,12 @@ public class PendingController {
       table.setPlaceholder(placeholder("先在「总览」页打开仓库"));
       return;
     }
-    Fx.runEngine(
-        state,
+    Fx.runAsync(
         () -> {
           List<StoredDoc> pending;
           List<StoredDoc> unknown;
-          try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(repo))) {
+          // 只读不进 engineLock：批量任务进行中也能即时刷新（读已提交快照）
+          try (RepoIndex idx = RepoIndex.openReadOnly(RepoPaths.indexDir(repo))) {
             pending = idx.byStatus("PENDING", 10_000);
             unknown = idx.byStatus("UNKNOWN", 10_000);
           }

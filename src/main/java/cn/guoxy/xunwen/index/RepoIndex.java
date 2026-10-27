@@ -1,6 +1,7 @@
 package cn.guoxy.xunwen.index;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -54,13 +55,26 @@ public final class RepoIndex implements AutoCloseable {
   private IndexReader view; // 共享读视图：可写=writer 的 NRT reader（可见未提交变更），只读=目录快照
   private boolean dirty; // 有未提交写入；批次边界（close）统一提交
 
-  public RepoIndex(Path indexDir) throws IOException {
-    this(indexDir, true);
+  /** 可写打开：持有 IndexWriter（Lucene 写锁）。调用方必须持有 AppState.engineLock（单写者互斥）。 */
+  public static RepoIndex openWritable(Path indexDir) throws IOException {
+    return new RepoIndex(indexDir, true);
   }
 
-  /** 只读打开：不持有 IndexWriter（不抢 Lucene 写锁），可与批量写任务并发。搜索/浏览路径专用。 */
+  /** 只读打开：不持有 IndexWriter（不抢 Lucene 写锁），可与批量写任务并发；读的是已提交快照。 零副作用：目录不存在时不创建，直接返回空视图（读方法全空结果）。 */
   public static RepoIndex openReadOnly(Path indexDir) throws IOException {
-    return new RepoIndex(indexDir, false);
+    return Files.exists(indexDir) ? new RepoIndex(indexDir, false) : emptyView();
+  }
+
+  private static final RepoIndex EMPTY_VIEW = new RepoIndex();
+
+  private static RepoIndex emptyView() {
+    return EMPTY_VIEW; // 无状态可安全共享：reader 为 null，读方法全空结果，close 零操作
+  }
+
+  private RepoIndex() { // 空视图实例，仅供 openReadOnly 在目录不存在时返回
+    this.dir = null;
+    this.analyzer = null;
+    this.writer = null;
   }
 
   private RepoIndex(Path indexDir, boolean writable) throws IOException {
@@ -73,6 +87,9 @@ public final class RepoIndex implements AutoCloseable {
    * 共享读视图，调用方不得关闭（close() 统一释放）：可写实例经 NRT 立即可见自身未提交的写入； 索引尚无 segments 文件（全新未建）时返回 null，读方法按空结果处理。
    */
   public IndexReader reader() throws IOException {
+    if (dir == null) {
+      return null; // 空视图（目录不存在的只读打开）
+    }
     if (view == null) {
       if (writer != null) {
         view = DirectoryReader.open(writer);
@@ -280,7 +297,11 @@ public final class RepoIndex implements AutoCloseable {
     if (view != null) {
       view.close();
     }
-    dir.close();
-    analyzer.close();
+    if (dir != null) {
+      dir.close();
+    }
+    if (analyzer != null) {
+      analyzer.close();
+    }
   }
 }
