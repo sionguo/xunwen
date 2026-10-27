@@ -6,6 +6,7 @@ import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.pipeline.ApprovalService;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
+import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Files;
@@ -228,8 +229,18 @@ public class TreeController implements PageAware {
       Fx.alert("类别树", "没有待批准的提案");
       return;
     }
+    CategoryTree effective = treeFromUi(); // 右键编辑改的是 UI 树，批准时回读
+    if (effective.roots().isEmpty()) {
+      Fx.alert("类别树", "提案还没有任何类别：右键「加子类别」先添加");
+      return;
+    }
+    if (effective.find("其他").isEmpty()) {
+      List<Category> roots = new ArrayList<>(effective.roots());
+      roots.add(new Category("其他", "", List.of())); // 兜底类别与 LLM 路径同规则强制补上
+      effective = new CategoryTree(roots);
+    }
     try {
-      proposal.save(RepoPaths.categoriesYaml(repo));
+      effective.save(RepoPaths.categoriesYaml(repo));
       Files.deleteIfExists(RepoPaths.proposalYaml(repo)); // 提案已生效，清掉持久化副本
       proposal = null;
       reload();
@@ -239,6 +250,25 @@ public class TreeController implements PageAware {
     } catch (Exception e) {
       Fx.error("保存失败", e);
     }
+  }
+
+  /** 从 UI 树收集提案（右键编辑改的是 TreeItem，批准时回读）；描述沿用原提案同路径类别。 */
+  private CategoryTree treeFromUi() {
+    List<Category> roots = new ArrayList<>();
+    for (TreeItem<String> top : tree.getRoot().getChildren()) {
+      roots.add(categoryOf(top, ""));
+    }
+    return new CategoryTree(roots);
+  }
+
+  private Category categoryOf(TreeItem<String> node, String parentPath) {
+    String path = parentPath.isEmpty() ? node.getValue() : parentPath + "/" + node.getValue();
+    String desc = proposal.find(path).map(Category::description).orElse("");
+    List<Category> children = new ArrayList<>();
+    for (TreeItem<String> c : node.getChildren()) {
+      children.add(categoryOf(c, path));
+    }
+    return new Category(node.getValue(), desc, children);
   }
 
   /** 入树成功后衔接下一步：弹窗直接提供「立即重排」，不再让用户自己去工具栏找按钮。 */

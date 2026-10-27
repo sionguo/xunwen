@@ -1,9 +1,11 @@
 package cn.guoxy.xunwen.ui;
 
 import cn.guoxy.xunwen.pipeline.IngestTask;
+import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 
@@ -19,18 +21,26 @@ final class RepoOpener {
         state.requestNavigation("TREE");
         return;
       }
+      ButtonType byLlm = new ButtonType("采样生成（LLM）");
+      ButtonType byHand = new ButtonType("手动建树");
       var guide =
           new Alert(
               Alert.AlertType.CONFIRMATION,
-              "该仓库还没有类别树。是否立即采样并生成类别树提案？\n（调用 LLM 归纳分类体系，约需 1 分钟，生成后你审核批准）");
+              "该仓库还没有类别树，选择建树方式：\n"
+                  + "· 采样生成——调用 LLM 归纳分类体系（约 1 分钟，生成后你审核批准）\n"
+                  + "· 手动建树——创建空提案自行右键添加类别（无 LLM 环境可用）");
       guide.setTitle("完成冷启动");
       guide.setHeaderText("仓库「" + selected.getFileName() + "」需要先完成冷启动");
+      guide.getButtonTypes().setAll(byLlm, byHand, ButtonType.CANCEL);
       guide
           .showAndWait()
           .ifPresent(
               bt -> {
-                if (bt == ButtonType.OK) {
+                if (bt == byLlm) {
                   state.setAutoGenerateProposal(true);
+                  state.requestNavigation("TREE");
+                } else if (bt == byHand) {
+                  startManualTree(selected);
                   state.requestNavigation("TREE");
                 }
               });
@@ -58,5 +68,14 @@ final class RepoOpener {
           progress.close();
           Fx.error("同步失败", t);
         });
+  }
+
+  /** 手动建树：落一个空提案文件，复用提案恢复/右键编辑/批准链路（无 LLM 环境的冷启动入口）。 */
+  private static void startManualTree(Path repo) {
+    try {
+      new CategoryTree(List.of()).save(RepoPaths.proposalYaml(repo));
+    } catch (Exception e) {
+      Fx.error("创建空提案失败", e);
+    }
   }
 }
