@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <a href="README_EN.md">English</a> | 简体中文
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Java-25-orange" alt="Java 25">
   <img src="https://img.shields.io/badge/JavaFX-27-blue" alt="JavaFX 27">
   <img src="https://img.shields.io/badge/Lucene-10.5-green" alt="Lucene 10.5">
