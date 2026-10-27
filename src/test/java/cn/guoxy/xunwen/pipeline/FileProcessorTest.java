@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
+import cn.guoxy.xunwen.index.Doc;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.Category;
@@ -171,6 +172,81 @@ class FileProcessorTest {
               .process(src, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertNull(r.dest());
       assertEquals("DUPLICATE", r.status());
+    }
+  }
+
+  @Test
+  void strongNeighborsBypassLlm(@TempDir Path root) throws Exception {
+    // 种子 4 个已归档邻居（同方向单位向量、同类目）；LLM 一旦被调用就失败——直通意味着零调用
+    new CategoryTree(List.of(new Category("工作文档", "", List.of())))
+        .save(RepoPaths.categoriesYaml(root));
+    Path seed = Files.createDirectories(root.resolve("工作文档")).resolve("旧报告.txt");
+    Files.writeString(seed, "种子内容");
+    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+      for (int i = 0; i < 4; i++) {
+        index.upsert(
+            new Doc(
+                "工作文档/种子" + i + ".txt",
+                "种子" + i + ".txt",
+                "txt",
+                "h" + i,
+                1L,
+                2L,
+                "INDEXED",
+                "工作文档",
+                "种子内容 " + i,
+                new float[] {1, 0, 0, 0}));
+      }
+      LlmClient llmNever =
+          msgs -> {
+            throw new AssertionError("强邻居证据下不应调用 LLM");
+          };
+      ContentExtractor ex = file -> new ContentExtractor.Extracted("工作文档相关内容", true);
+      FileProcessor processor = new FileProcessor(root, CFG, llmNever, ex);
+      processor.warmVectors(new CategoryTree(List.of(new Category("工作文档", "", List.of()))));
+      Path f = root.resolve("新报告.txt");
+      Files.writeString(f, "工作文档相关内容");
+      FileProcessor.Result r =
+          processor.process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
+      assertEquals(root.resolve("工作文档/新报告.txt"), r.dest());
+      assertEquals("INDEXED", r.status());
+    }
+  }
+
+  @Test
+  void llmDownFallsBackToKnnVote(@TempDir Path root) throws Exception {
+    // LLM 不可达：强票兜底直接归档（ADR 0003 同一阈值分流）
+    new CategoryTree(List.of(new Category("工作文档", "", List.of())))
+        .save(RepoPaths.categoriesYaml(root));
+    Files.createDirectories(root.resolve("工作文档"));
+    try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
+      for (int i = 0; i < 3; i++) {
+        index.upsert(
+            new Doc(
+                "工作文档/邻居" + i + ".txt",
+                "邻居" + 1 + ".txt",
+                "txt",
+                "h",
+                1L,
+                2L,
+                "INDEXED",
+                "工作文档",
+                "内容",
+                new float[] {1, 0, 0, 0}));
+      }
+      LlmClient llmDown =
+          msgs -> {
+            throw new IllegalStateException("LLM chat failed");
+          };
+      ContentExtractor ex = file -> new ContentExtractor.Extracted("工作文档相关内容", true);
+      FileProcessor processor = new FileProcessor(root, CFG, llmDown, ex);
+      processor.warmVectors(new CategoryTree(List.of(new Category("工作文档", "", List.of()))));
+      Path f = root.resolve("新文件.txt");
+      Files.writeString(f, "工作文档相关内容");
+      FileProcessor.Result r =
+          processor.process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
+      assertEquals(root.resolve("工作文档/新文件.txt"), r.dest());
+      assertEquals("INDEXED", r.status());
     }
   }
 }
