@@ -10,9 +10,9 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** 递归目录监视（FR-11）。非线程化：调用方周期性 pollEvents() + drainStable()。 */
 public final class RepoWatcher implements AutoCloseable {
@@ -21,7 +21,7 @@ public final class RepoWatcher implements AutoCloseable {
   private final Path root;
   private final Duration stableWindow;
   private final WatchService watchService;
-  private final Map<Path, Snapshot> pending = new HashMap<>();
+  private final Map<Path, Snapshot> pending = new ConcurrentHashMap<>();
   private final List<String> ignoredPrefixes = new ArrayList<>();
 
   public RepoWatcher(Path root, Duration stableWindow) throws IOException {
