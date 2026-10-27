@@ -102,7 +102,7 @@ class RealLlmPipelineIT {
     assertFalse(samples.isEmpty(), "采样不应为空");
     CategoryTree tree = new TreeProposer(llm).propose(samples);
     List<String> paths = tree.flattenPaths();
-    assertTrue(paths.size() >= 3 && paths.size() <= 10, "一级类别数 3-10，实际 " + paths);
+    assertTrue(paths.size() >= 3, "一级类别数至少 3（软指导无硬上限），实际 " + paths);
     assertTrue(paths.stream().noneMatch(p -> p.contains("/")), "应为一级扁平类别，实际 " + paths);
     assertTrue(paths.contains("其他"), "必须含兜底类别「其他」");
     tree.save(RepoPaths.categoriesYaml(root));
