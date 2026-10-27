@@ -3,7 +3,6 @@ package cn.guoxy.xunwen.pipeline;
 import cn.guoxy.xunwen.classify.Action;
 import cn.guoxy.xunwen.classify.CategoryVectors;
 import cn.guoxy.xunwen.classify.Classifier;
-import cn.guoxy.xunwen.classify.KnnVote;
 import cn.guoxy.xunwen.config.GlobalConfig;
 import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
@@ -99,7 +98,12 @@ public final class FileProcessor {
     float[] fileVec = embedOrNull(embedText);
     List<RepoIndex.Neighbor> neighbors =
         fileVec == null ? List.of() : index.knnNeighbors(fileVec, KNN_K);
-    Classifier.Outcome outcome = classifyWithFallback(src, ex, tree, fileVec, neighbors);
+    Classifier.Outcome outcome =
+        classifier.decide(
+            tree,
+            vectorsFor(tree),
+            new Classifier.Evidence(
+                src.getFileName().toString(), rawText, ex.hasTextLayer(), fileVec, neighbors));
     return new Prepared(src, rawText, fileVec, outcome);
   }
 
@@ -189,38 +193,6 @@ public final class FileProcessor {
 
   /** 单文件 kNN 邻居查询数；超采样与过滤在 RepoIndex 侧。 */
   static final int KNN_K = 8;
-
-  /**
-   * 分层分类（ADR 0003）：kNN 强票（邻居多且一致、相似度过线）直通归档，跳过 LLM——全量入库的 LLM 调用量从每文件一次降为「难例才调」；否则走 LLM，传输失败（LLM
-   * 不可达）时以 kNN 票据兜底 （弱票走待审/待分类，人工后续救援），无票则维持原语义（本批失败计数）。
-   */
-  private Classifier.Outcome classifyWithFallback(
-      Path src,
-      ContentExtractor.Extracted ex,
-      CategoryTree tree,
-      float[] fileVec,
-      List<RepoIndex.Neighbor> neighbors) {
-    Classifier.Outcome knn = KnnVote.vote(neighbors, cfg.autoThreshold(), cfg.pendingThreshold());
-    if (knn != null && knn.action() == Action.AUTO_MOVE) {
-      LOG.debug("kNN 直通: {} → {}", src, knn.categoryPath());
-      return knn;
-    }
-    try {
-      return classifier.classify(
-          src.getFileName().toString(),
-          ex.text(),
-          ex.hasTextLayer(),
-          tree,
-          vectorsFor(tree),
-          fileVec);
-    } catch (IllegalStateException llmDown) {
-      if (knn != null) {
-        LOG.warn("LLM 不可达，kNN 投票兜底: {} → {}", src, knn.categoryPath(), llmDown);
-        return knn;
-      }
-      throw llmDown;
-    }
-  }
 
   /** 类目向量表按 tree 实例惰性重建；树变更（批准/删除类别）产生新实例即自动刷新。同步防并发 prepare 的 check-then-act。 */
   private synchronized CategoryVectors vectorsFor(CategoryTree tree) {

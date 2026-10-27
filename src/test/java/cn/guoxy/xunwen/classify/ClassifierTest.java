@@ -3,6 +3,7 @@ package cn.guoxy.xunwen.classify;
 import static org.junit.jupiter.api.Assertions.*;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
+import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.Category;
@@ -47,7 +48,9 @@ class ClassifierTest {
             {"category":"工作文档/报告","candidates":[
               {"name":"工作文档/报告","score":0.95},{"name":"其他","score":0.1}],"self":0.95}
             """);
-    var out = new Classifier(llm, GlobalConfig.defaults()).classify("q4.pdf", "季度报告内容", true, TREE);
+    var out =
+        new Classifier(llm, GlobalConfig.defaults())
+            .classify("q4.pdf", "季度报告内容", true, TREE, null, null);
     assertEquals(Action.AUTO_MOVE, out.action());
     assertEquals("工作文档/报告", out.categoryPath());
   }
@@ -62,7 +65,9 @@ class ClassifierTest {
             {"category":"工作文档/报告","candidates":[
               {"name":"工作文档/报告","score":0.98},{"name":"其他","score":0.92}],"self":0.97}
             """);
-    var out = new Classifier(llm, GlobalConfig.defaults()).classify("q4.pdf", "季度报告内容", true, TREE);
+    var out =
+        new Classifier(llm, GlobalConfig.defaults())
+            .classify("q4.pdf", "季度报告内容", true, TREE, null, null);
     assertEquals(Action.AUTO_MOVE, out.action());
   }
 
@@ -75,7 +80,9 @@ class ClassifierTest {
             {"category":"工作文档/报告","candidates":[
               {"name":"工作文档/报告","score":0.6},{"name":"其他","score":0.4}],"self":0.9}
             """);
-    var out = new Classifier(llm, GlobalConfig.defaults()).classify("q4.pdf", "内容", true, TREE);
+    var out =
+        new Classifier(llm, GlobalConfig.defaults())
+            .classify("q4.pdf", "内容", true, TREE, null, null);
     assertEquals(Action.PENDING, out.action());
   }
 
@@ -93,7 +100,9 @@ class ClassifierTest {
                 "scan.pdf",
                 "",
                 false,
-                TREE); // 无文本层 → confidence 直接压到 pendingThreshold(0.5) → PENDING
+                TREE,
+                null,
+                null); // 无文本层 → confidence 直接压到 pendingThreshold(0.5) → PENDING
     assertEquals(Action.PENDING, out.action());
   }
 
@@ -105,7 +114,8 @@ class ClassifierTest {
           calls[0]++;
           return calls[0] == 1 ? "不是json" : "{\"category\":\"\",\"candidates\":[],\"self\":0.1}";
         };
-    var out = new Classifier(bad, GlobalConfig.defaults()).classify("f.bin", "x", true, TREE);
+    var out =
+        new Classifier(bad, GlobalConfig.defaults()).classify("f.bin", "x", true, TREE, null, null);
     assertEquals(Action.UNKNOWN, out.action());
     assertEquals(2, calls[0]);
   }
@@ -119,7 +129,9 @@ class ClassifierTest {
           throw new IllegalStateException("LLM chat failed");
         };
     var classifier = new Classifier(down, GlobalConfig.defaults());
-    assertThrows(IllegalStateException.class, () -> classifier.classify("f.txt", "x", true, TREE));
+    assertThrows(
+        IllegalStateException.class,
+        () -> classifier.classify("f.txt", "x", true, TREE, null, null));
     assertEquals(1, calls[0]); // 传输失败不重试：LLM 不可达 ≠ 模型说不知道
   }
 
@@ -192,9 +204,71 @@ class ClassifierTest {
             {"category":"","candidates":[],"self":0.2,
              "proposed":"发票凭证","reason":"多个餐饮发票文件"}
             """);
-    var out = new Classifier(llm, GlobalConfig.defaults()).classify("f.pdf", "发票", true, TREE);
+    var out =
+        new Classifier(llm, GlobalConfig.defaults())
+            .classify("f.pdf", "发票", true, TREE, null, null);
     assertEquals(Action.UNKNOWN, out.action());
     assertEquals("发票凭证", out.proposedCategory());
     assertEquals("多个餐饮发票文件", out.proposalReason());
+  }
+
+  private static RepoIndex.Neighbor n(String cat, double sim) {
+    return new RepoIndex.Neighbor(cat, (float) sim);
+  }
+
+  @Test
+  void deciderSkipsLlmWhenKnnStrongVote() {
+    // 强票（3/3 一致、平均相似度 0.92 ≥ 0.85）：直通 AUTO_MOVE，LLM 一旦被调用即失败
+    LlmClient never =
+        _ -> {
+          throw new AssertionError("kNN 强票直通不应调用 LLM");
+        };
+    var out =
+        new Classifier(never, GlobalConfig.defaults())
+            .decide(
+                TREE,
+                null,
+                new Classifier.Evidence(
+                    "a.pdf",
+                    "内容",
+                    true,
+                    null,
+                    List.of(n("工作文档", 0.95), n("工作文档", 0.92), n("工作文档", 0.9))));
+    assertEquals(Action.AUTO_MOVE, out.action());
+    assertEquals("工作文档", out.categoryPath());
+  }
+
+  @Test
+  void deciderFallsBackToKnnWhenLlmDown() {
+    // LLM 不可达（传输异常）且 kNN 弱票（2 票一致但低于 MIN_NEIGHBORS）→ 弱票兜底走 PENDING
+    LlmClient down =
+        _ -> {
+          throw new IllegalStateException("LLM 不可达");
+        };
+    var out =
+        new Classifier(down, GlobalConfig.defaults())
+            .decide(
+                TREE,
+                null,
+                new Classifier.Evidence(
+                    "a.pdf", "内容", true, null, List.of(n("工作文档", 0.95), n("工作文档", 0.9))));
+    assertEquals(Action.PENDING, out.action());
+    assertEquals("工作文档", out.categoryPath());
+  }
+
+  @Test
+  void deciderConsultsLlmWhenNoNeighbors() {
+    // 无邻居（vote 为 null）→ 正常走 LLM 单策略
+    var llm =
+        llmReturning(
+            """
+            {"category":"工作文档","candidates":[
+              {"name":"工作文档","score":0.95},{"name":"其他","score":0.1}],"self":0.95}
+            """);
+    var out =
+        new Classifier(llm, GlobalConfig.defaults())
+            .decide(TREE, null, Classifier.Evidence.plain("q.pdf", "内容", true));
+    assertEquals(Action.AUTO_MOVE, out.action());
+    assertEquals("工作文档", out.categoryPath());
   }
 }

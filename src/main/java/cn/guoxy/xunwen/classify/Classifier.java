@@ -1,22 +1,41 @@
 package cn.guoxy.xunwen.classify;
 
 import cn.guoxy.xunwen.config.GlobalConfig;
+import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public final class Classifier {
+  private static final Logger LOG = LoggerFactory.getLogger(Classifier.class);
+
   public record Outcome(
       Action action,
       String categoryPath,
       double confidence,
       String proposedCategory,
       String proposalReason) {}
+
+  /** decide 的文件证据：文件名、内容、文本层标记、文件向量与 kNN 邻居（无则空）。 */
+  public record Evidence(
+      String fileName,
+      String content,
+      boolean hasTextLayer,
+      float[] fileVec,
+      List<RepoIndex.Neighbor> neighbors) {
+
+    /** 测试便利：无向量无邻居的纯文本证据。 */
+    public static Evidence plain(String fileName, String content, boolean hasTextLayer) {
+      return new Evidence(fileName, content, hasTextLayer, null, List.of());
+    }
+  }
 
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final int PREVIEW_CHARS = 3000;
@@ -29,16 +48,33 @@ public final class Classifier {
     this.cfg = cfg;
   }
 
-  public Outcome classify(
-      String fileName, String contentPreview, boolean hasTextLayer, CategoryTree tree) {
-    return classify(fileName, contentPreview, hasTextLayer, tree, null, null);
+  /**
+   * 分类决策（分层，ADR 0003）：kNN 强票（邻居多且一致、相似度过线）直通归档，跳过 LLM—— 全量入库的 LLM 调用量从每文件一次降为「难例才调」； 否则走
+   * LLM，传输失败（LLM 不可达）时以 kNN 票据兜底（弱票走待审/待分类，人工后续救援）， 无票则维持原语义（异常上抛，本批失败计数）。
+   */
+  public Outcome decide(CategoryTree tree, CategoryVectors vectors, Evidence e) {
+    Classifier.Outcome knn =
+        KnnVote.vote(e.neighbors(), cfg.autoThreshold(), cfg.pendingThreshold());
+    if (knn != null && knn.action() == Action.AUTO_MOVE) {
+      LOG.debug("kNN 直通: {} → {}", e.fileName(), knn.categoryPath());
+      return knn;
+    }
+    try {
+      return classify(e.fileName(), e.content(), e.hasTextLayer(), tree, vectors, e.fileVec());
+    } catch (IllegalStateException llmDown) {
+      if (knn != null) {
+        LOG.warn("LLM 不可达，kNN 投票兜底: {} → {}", e.fileName(), knn.categoryPath(), llmDown);
+        return knn;
+      }
+      throw llmDown;
+    }
   }
 
   /**
-   * 带向量一致性校验的分类：LLM 给出类别与置信度后，若向量路的最相似类别与 LLM 结论不一致， 置信度减半压进待审区（两路独立证据一致才自动移动）。vectors 或 fileVec 为
-   * null 时旁路。
+   * LLM 单策略（decide 的内部零件）：LLM 给出类别与置信度后，若向量路的最相似类别与 LLM 结论不一致， 置信度减半压进待审区（两路独立证据一致才自动移动）。vectors 或
+   * fileVec 为 null 时旁路。 传输异常（LLM 不可达）原样上抛，由 decide 决定兜底；解析失败重试两次后 UNKNOWN。
    */
-  public Outcome classify(
+  Outcome classify(
       String fileName,
       String contentPreview,
       boolean hasTextLayer,
