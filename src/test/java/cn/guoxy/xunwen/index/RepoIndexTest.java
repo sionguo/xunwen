@@ -197,4 +197,40 @@ class RepoIndexTest {
       }
     }
   }
+
+  @Test
+  void knnNeighborsOnlyCountsIndexedWithCategory(@TempDir Path dir) throws Exception {
+    try (RepoIndex idx = new RepoIndex(dir.resolve("index"))) {
+      idx.upsert(
+          new Doc(
+              "a.txt",
+              "a.txt",
+              "txt",
+              "h",
+              1L,
+              2L,
+              "INDEXED",
+              "工作文档",
+              "内容",
+              new float[] {1, 0, 0, 0}));
+      idx.upsert(
+          new Doc(
+              "b.txt",
+              "b.txt",
+              "txt",
+              "h",
+              1L,
+              2L,
+              "INDEXED",
+              "工作文档",
+              "内容",
+              new float[] {0.9f, 0.1f, 0, 0}));
+      idx.upsert(
+          new Doc(
+              "c.txt", "c.txt", "txt", "h", 1L, 2L, "PENDING", "", "内容", new float[] {1, 0, 0, 0}));
+      var neighbors = idx.knnNeighbors(new float[] {1, 0, 0, 0}, 8);
+      assertEquals(2, neighbors.size()); // PENDING/无类别邻居被过滤
+      assertEquals("工作文档", neighbors.getFirst().categoryPath());
+    }
+  }
 }

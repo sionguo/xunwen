@@ -200,6 +200,27 @@ public final class RepoIndex implements AutoCloseable {
     }
   }
 
+  /** 一条 kNN 邻居证据：已归档邻居的类别路径与相似度（分层分类/降级分类用）。 */
+  public record Neighbor(String categoryPath, float similarity) {}
+
+  /** 在已归档（INDEXED 且有类别）文档中查 vec 的最近邻，按相似度降序；超采样 2 倍补足过滤损耗。 */
+  public List<Neighbor> knnNeighbors(float[] vec, int k) throws IOException {
+    IndexReader reader = reader();
+    if (reader == null) {
+      return List.of();
+    }
+    TopDocs top =
+        new IndexSearcher(reader).search(new KnnFloatVectorQuery(F_VEC, vec, k * 2), k * 2);
+    List<Neighbor> out = new ArrayList<>();
+    for (ScoreDoc hit : top.scoreDocs) {
+      Document d = reader.storedFields().document(hit.doc, Set.of(F_STATUS, F_CATEGORY));
+      if ("INDEXED".equals(d.get(F_STATUS)) && !d.get(F_CATEGORY).isBlank()) {
+        out.add(new Neighbor(d.get(F_CATEGORY), hit.score));
+      }
+    }
+    return out;
+  }
+
   public TopDocs searchKnn(float[] vector, int k) throws IOException {
     return search(new KnnFloatVectorQuery(F_VEC, vector, k), k);
   }
