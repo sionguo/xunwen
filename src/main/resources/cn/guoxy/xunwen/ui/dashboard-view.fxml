@@ -42,14 +42,4 @@
       <Label fx:id="statUnknown" text="0" styleClass="stat-value, stat-unknown"/>
     </VBox>
   </HBox>
-  <Label text="操作批次（最近在前，可整批回滚还原移动）" styleClass="page-hint"/>
-  <TableView fx:id="batches" VBox.vgrow="ALWAYS">
-    <columns>
-      <TableColumn fx:id="timeCol" text="时间" prefWidth="150"/>
-      <TableColumn fx:id="kindCol" text="类型" prefWidth="110"/>
-      <TableColumn fx:id="batchCol" text="批次号" prefWidth="220"/>
-      <TableColumn fx:id="movesCol" text="移动数" prefWidth="80"/>
-      <TableColumn fx:id="actionCol" text="操作" prefWidth="120"/>
-    </columns>
-  </TableView>
 </VBox>

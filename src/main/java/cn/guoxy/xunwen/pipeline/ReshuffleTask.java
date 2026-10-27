@@ -54,16 +54,15 @@ public final class ReshuffleTask {
     return run(progress, Mode.INCREMENTAL);
   }
 
-  /** 按模式重排一个批次，返回含 batchId 的处置统计。 两阶段并发管道：提取+分类按配置并发（虚拟线程 + 信号量限流）， 移动+入库在主循环串行执行（单写者）。 */
+  /** 按模式重排一批文件，返回处置统计。 两阶段并发管道：提取+分类按配置并发（虚拟线程 + 信号量限流）， 移动+入库在主循环串行执行（单写者）。 */
   public BatchStats run(Progress progress, Mode mode) throws IOException {
     Path treeYaml = RepoPaths.categoriesYaml(repoRoot);
     if (!Files.exists(treeYaml)) {
       throw new IllegalStateException("先完成冷启动：缺少 " + treeYaml);
     }
     CategoryTree tree = CategoryTree.load(treeYaml);
-    String batchId = "reshuffle-" + System.currentTimeMillis();
     FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
-    BatchStats stats = new BatchStats(batchId);
+    BatchStats stats = new BatchStats();
 
     List<Path> files = listFiles(mode == Mode.FULL);
     int total = files.size();
@@ -103,10 +102,10 @@ public final class ReshuffleTask {
             Thread.currentThread().interrupt();
             break;
           }
-          FileProcessor.Result r = processor.commit(p, batchId, index);
+          FileProcessor.Result r = processor.commit(p, index);
           stats.add(r);
           if (r.dest() != null) {
-            stats.moved(batchId, files.get(i), r.dest());
+            stats.moved(files.get(i), r.dest());
           }
           progress.onProgress(
               ++done, total, FileProcessor.posix(repoRoot.relativize(files.get(i))));

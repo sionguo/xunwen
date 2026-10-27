@@ -7,7 +7,6 @@ import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
-import cn.guoxy.xunwen.move.OperationLog;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -53,8 +52,6 @@ class ReshuffleTaskTest {
     try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
       assertTrue(idx.findByPath("工作文档/报告.txt").isPresent());
     }
-    var log = new OperationLog(RepoPaths.operationsJsonl(root));
-    assertEquals(2, log.batch(stats.batchId()).size()); // 移动留痕,供审计
     assertEquals(2, stats.indexed()); // 统计可见：两个文件全部自动归档
     assertEquals(0, stats.failed());
   }

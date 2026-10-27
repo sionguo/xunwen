@@ -63,7 +63,7 @@ class FileProcessorTest {
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, new FakeLlm(), ex)
-              .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), "b1", index);
+              .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       // LLM conf=0.936 但向量 top1=其他 → 钳 0.468 < 0.5 → 待分类（状态 UNKNOWN）
       assertEquals(root.resolve("待分类/报告.txt"), r.dest());
       assertEquals("UNKNOWN", r.status());
@@ -84,7 +84,7 @@ class FileProcessorTest {
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, new FakeLlm(), ex)
-              .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), "b1", index);
+              .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       // 向量 top1=工作文档 与 LLM 一致 → conf=0.936 ≥ 0.85 → 自动归位
       assertEquals(root.resolve("工作文档/报告.txt"), r.dest());
       assertEquals("INDEXED", r.status());
@@ -111,7 +111,7 @@ class FileProcessorTest {
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, llm, ex)
-              .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), "b1", index);
+              .process(f, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertNotNull(r.dest());
       assertEquals(root.resolve("工作文档/报告.txt"), r.dest());
     }
@@ -140,7 +140,7 @@ class FileProcessorTest {
       assertNotNull(p);
       assertEquals(root.resolve("报告.txt"), p.src());
 
-      FileProcessor.Result r = processor.commit(p, "b-split", index);
+      FileProcessor.Result r = processor.commit(p, index);
       assertEquals(root.resolve("工作文档/报告.txt"), r.dest());
       assertEquals("INDEXED", r.status());
       // 候选类别写入索引（待审预选数据源）
@@ -168,7 +168,7 @@ class FileProcessorTest {
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(root))) {
       FileProcessor.Result r =
           new FileProcessor(root, CFG, llm, ex)
-              .process(src, CategoryTree.load(RepoPaths.categoriesYaml(root)), "b1", index);
+              .process(src, CategoryTree.load(RepoPaths.categoriesYaml(root)), index);
       assertNull(r.dest());
       assertEquals("DUPLICATE", r.status());
     }

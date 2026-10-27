@@ -7,7 +7,6 @@ import cn.guoxy.xunwen.extract.ContentExtractor;
 import cn.guoxy.xunwen.index.Doc;
 import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
-import cn.guoxy.xunwen.move.OperationLog;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -232,14 +231,5 @@ class ApprovalServiceTest {
       assertEquals("工作文档", idx.findByPath("工作文档/甲.txt").orElseThrow().candidatePath());
       assertTrue(idx.findByPath("待分类/乙.txt").isEmpty());
     }
-    assertEquals(
-        2, new OperationLog(RepoPaths.operationsJsonl(root)).batch(logBatchId(root)).size());
-  }
-
-  /** 批量归位共用一个批次号：从日志取 approve- 开头批次的条数验证。 */
-  private String logBatchId(Path root) throws Exception {
-    var batches = new RollbackService(root).batches();
-    assertEquals(1, batches.size()); // 两笔移动同批次
-    return batches.getFirst().batchId();
   }
 }

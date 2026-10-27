@@ -52,7 +52,6 @@ class CategoryTreeTest {
     assertEquals(root.resolve(".xunwen"), RepoPaths.xunwenDir(root));
     assertEquals(root.resolve(".xunwen/index"), RepoPaths.indexDir(root));
     assertEquals(root.resolve(".xunwen/categories.yaml"), RepoPaths.categoriesYaml(root));
-    assertEquals(root.resolve(".xunwen/operations.jsonl"), RepoPaths.operationsJsonl(root));
     assertEquals(root.resolve("待分类"), RepoPaths.pendingDir(root));
   }
 }

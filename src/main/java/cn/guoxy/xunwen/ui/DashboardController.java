@@ -1,13 +1,9 @@
 package cn.guoxy.xunwen.ui;
 
 import cn.guoxy.xunwen.index.RepoIndex;
-import cn.guoxy.xunwen.pipeline.RollbackService;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,15 +24,10 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.stage.DirectoryChooser;
 
-/** 总览页（驾驶舱）：仓库任务一览（所有仓库的下一步行动）+ 当前仓库状态统计 + 操作批次回滚（FR-4）。 */
+/** 总览页（驾驶舱）：仓库任务一览（所有仓库的下一步行动）+ 当前仓库状态统计。 */
 public class DashboardController {
-  private record Row(RollbackService.Batch batch) {}
-
   /** 仓库任务行：仓库、生命周期状态、待审+未知数。 */
   record RepoRow(Path repo, String state, long attention) {}
-
-  private static final DateTimeFormatter TIME =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
 
   private final AppState state;
 
@@ -51,12 +42,6 @@ public class DashboardController {
   @FXML private Label statPending;
   @FXML private Label statUnknown;
   @FXML private Button addRepoBtn;
-  @FXML private TableView<Row> batches;
-  @FXML private TableColumn<Row, String> timeCol;
-  @FXML private TableColumn<Row, String> kindCol;
-  @FXML private TableColumn<Row, String> batchCol;
-  @FXML private TableColumn<Row, Number> movesCol;
-  @FXML private TableColumn<Row, Row> actionCol;
 
   public DashboardController(AppState state) {
     this.state = state;
@@ -64,7 +49,6 @@ public class DashboardController {
 
   @FXML
   private void initialize() {
-    wireBatchTable();
     wireRepoTable();
     // 待审/未知卡即入口：点击直达待审页（状态即行动）
     if (statPending.getParent() instanceof javafx.scene.layout.VBox pendingCard) {
@@ -122,42 +106,7 @@ public class DashboardController {
             });
   }
 
-  private void wireBatchTable() {
-    timeCol.setCellValueFactory(
-        d ->
-            new SimpleStringProperty(TIME.format(Instant.ofEpochMilli(d.getValue().batch().ts()))));
-    kindCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().batch().kind()));
-    batchCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().batch().batchId()));
-    movesCol.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().batch().moves()));
-    actionCol.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue()));
-    actionCol.setCellFactory(
-        col ->
-            new TableCell<>() {
-              private final Button btn = new Button("回滚此批次");
-
-              {
-                // 主题内置的 danger 描边变体：批量回滚入口不再满屏红块，红只落在文字和描边上
-                btn.getStyleClass().addAll("danger", "button-outlined");
-              }
-
-              @Override
-              protected void updateItem(Row item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                  setGraphic(null);
-                  return;
-                }
-                btn.setOnAction(e -> onRollback(item.batch()));
-                setGraphic(btn);
-              }
-            });
-  }
-
   void reload() {
-    // 占位每次重设（与待审页一致，保证空态可见）
-    var placeholder = new Label("暂无操作批次");
-    placeholder.getStyleClass().add("placeholder-label");
-    batches.setPlaceholder(placeholder);
     Path repo = state.currentRepo();
     repoHint.setText(repo == null ? "未打开仓库——在下方「仓库任务」里选一个开始" : "当前仓库：" + repo.getFileName());
     List<Path> repos = List.copyOf(state.reposProperty());
@@ -176,15 +125,13 @@ public class DashboardController {
               perRepo.put(r, Map.of());
             }
           }
-          List<RollbackService.Batch> list =
-              repo == null ? List.of() : new RollbackService(repo).batches();
-          return new LoadResult(perRepo, list);
+          return perRepo;
         },
         r -> {
           // 仓库任务一览
           List<RepoRow> rows = new ArrayList<>();
           for (Path p : repos) {
-            Map<String, Long> counts = r.perRepo().getOrDefault(p, Map.of());
+            Map<String, Long> counts = r.getOrDefault(p, Map.of());
             long attention =
                 counts.getOrDefault("PENDING", 0L) + counts.getOrDefault("UNKNOWN", 0L);
             String stateText;
@@ -199,16 +146,12 @@ public class DashboardController {
           }
           repoTable.setItems(FXCollections.observableArrayList(rows)); // 拷贝为可变列表
           // 当前仓库统计卡
-          Map<String, Long> counts =
-              repo == null ? Map.of() : r.perRepo().getOrDefault(repo, Map.of());
+          Map<String, Long> counts = repo == null ? Map.of() : r.getOrDefault(repo, Map.of());
           statTotal.setText(
               String.valueOf(counts.values().stream().mapToLong(Long::longValue).sum()));
           statIndexed.setText(String.valueOf(counts.getOrDefault("INDEXED", 0L)));
           statPending.setText(String.valueOf(counts.getOrDefault("PENDING", 0L)));
           statUnknown.setText(String.valueOf(counts.getOrDefault("UNKNOWN", 0L)));
-          // 批次表
-          batches.setItems(
-              FXCollections.observableArrayList(r.batches().stream().map(Row::new).toList()));
         },
         t -> Fx.error("加载总览失败", t));
   }
@@ -248,42 +191,4 @@ public class DashboardController {
               }
             });
   }
-
-  private void onRollback(RollbackService.Batch batch) {
-    Path repo = state.currentRepo();
-    if (repo == null) {
-      return;
-    }
-    var confirm =
-        new Alert(
-            Alert.AlertType.CONFIRMATION,
-            "回滚批次「"
-                + batch.kind()
-                + "」（"
-                + batch.moves()
-                + " 次移动）？\n文件将逆序移回原位置，索引条目同步撤销；"
-                + "回滚后的文件回到未处理状态，下次同步/重排时重新分类。");
-    confirm.setTitle("回滚批次");
-    confirm.setHeaderText(null);
-    confirm
-        .showAndWait()
-        .ifPresent(
-            bt -> {
-              if (bt != ButtonType.OK) {
-                return;
-              }
-              Fx.runEngine(
-                  state,
-                  () -> new RollbackService(repo).rollbackBatch(batch.batchId()),
-                  n -> {
-                    state.markDataChanged();
-                    state.activity("已回滚批次 " + batch.batchId() + "：还原 " + n + " 个文件");
-                    Fx.alert("批次回滚", "已回滚 " + n + " 个文件到原位置");
-                  },
-                  t -> Fx.error("回滚失败", t));
-            });
-  }
-
-  private record LoadResult(
-      Map<Path, Map<String, Long>> perRepo, List<RollbackService.Batch> batches) {}
 }

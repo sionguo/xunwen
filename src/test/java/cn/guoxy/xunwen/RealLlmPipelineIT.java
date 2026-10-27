@@ -106,9 +106,8 @@ class RealLlmPipelineIT {
     assertTrue(paths.contains("其他"), "必须含兜底类别「其他」");
     tree.save(RepoPaths.categoriesYaml(root));
 
-    // 2. 重排：文件进一级类别目录或待分类，操作留痕
+    // 2. 重排：文件进一级类别目录或待分类
     var stats = new ReshuffleTask(root, CFG, llm, extractor).run(ReshuffleTask.Progress.noop());
-    assertFalse(stats.batchId().isBlank());
     assertEquals(6, stats.touched(), "重排统计应覆盖全部文件：" + stats.summary());
     List<Path> after;
     try (var walk = Files.walk(root)) {

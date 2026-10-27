@@ -209,10 +209,12 @@ public class PendingController {
     }
     Fx.runEngine(
         state,
-        () ->
-            new ApprovalService(repo, state.config(), state.llm(), state.extractor())
-                .approve(repo.resolve(row.doc().path()), category),
-        batch -> {
+        () -> {
+          new ApprovalService(repo, state.config(), state.llm(), state.extractor())
+              .approve(repo.resolve(row.doc().path()), category);
+          return null;
+        },
+        v -> {
           state.activity("人工归位：" + row.doc().name() + " → " + category);
           reload();
         },

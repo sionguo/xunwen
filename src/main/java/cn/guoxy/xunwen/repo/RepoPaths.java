@@ -22,10 +22,6 @@ public final class RepoPaths {
     return xunwenDir(repoRoot).resolve("proposal.yaml");
   }
 
-  public static Path operationsJsonl(Path repoRoot) {
-    return xunwenDir(repoRoot).resolve("operations.jsonl");
-  }
-
   public static Path pendingDir(Path repoRoot) {
     return repoRoot.resolve(CategoryTree.PENDING_DIR_NAME);
   }

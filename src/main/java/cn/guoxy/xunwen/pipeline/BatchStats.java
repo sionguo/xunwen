@@ -4,9 +4,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 一批任务的处置统计（所有状态可见）：归档/待审/未知为成功分流，已在库/重复为合理跳过， 失败与清理计数保证问题不被静默吞掉；moved 供监视回环过滤与审计。 */
+/** 一批任务的处置统计（所有状态可见）：归档/待审/未知为成功分流，已在库/重复为合理跳过， 失败与清理计数保证问题不被静默吞掉；moved 供监视回环过滤。 */
 public final class BatchStats {
-  private final String batchId;
   private int indexed;
   private int pending;
   private int unknown;
@@ -16,9 +15,7 @@ public final class BatchStats {
   private int cleaned; // 同步时清理的失效索引条目（文件已删/指纹变化）
   private final List<MoveRecord> moved = new ArrayList<>();
 
-  public BatchStats(String batchId) {
-    this.batchId = batchId;
-  }
+  public BatchStats() {}
 
   public BatchStats add(FileProcessor.Result r) {
     if (r == null || r.dest() == null) {
@@ -38,18 +35,14 @@ public final class BatchStats {
     return this;
   }
 
-  public BatchStats moved(String batchId, Path from, Path to) {
-    moved.add(new MoveRecord(batchId, from, to));
+  public BatchStats moved(Path from, Path to) {
+    moved.add(new MoveRecord(from, to));
     return this;
   }
 
   public BatchStats cleaned(int n) {
     cleaned += n;
     return this;
-  }
-
-  public String batchId() {
-    return batchId;
   }
 
   public int indexed() {

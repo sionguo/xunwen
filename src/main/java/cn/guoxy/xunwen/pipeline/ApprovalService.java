@@ -7,7 +7,6 @@ import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.index.StoredDoc;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.move.FileMover;
-import cn.guoxy.xunwen.move.OperationLog;
 import cn.guoxy.xunwen.repo.Category;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
@@ -35,29 +34,20 @@ public final class ApprovalService {
   /** 批量人工归位项：待审文件 → 目标类别。 */
   public record PendingApproval(Path file, String categoryPath) {}
 
-  /** 待审文件人工归位：移动 → 记日志 → 索引更新为 INDEXED。返回批次号。 */
-  public String approve(Path pendingFile, String categoryPath) throws IOException {
-    String batchId = "approve-" + System.currentTimeMillis();
+  /** 待审文件人工归位：移动 → 索引更新为 INDEXED。 */
+  public void approve(Path pendingFile, String categoryPath) throws IOException {
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
-      approveInto(
-          index,
-          new FileMover(repoRoot),
-          new OperationLog(RepoPaths.operationsJsonl(repoRoot)),
-          batchId,
-          new PendingApproval(pendingFile, categoryPath));
+      approveInto(index, new FileMover(repoRoot), new PendingApproval(pendingFile, categoryPath));
     }
-    return batchId;
   }
 
-  /** 批量人工归位：单个索引/日志会话内完成全部移动（N 文件不再开关 N 次索引）。 返回成功归位数。 */
+  /** 批量人工归位：单个索引会话内完成全部移动（N 文件不再开关 N 次索引）。 返回成功归位数。 */
   public int approveBatch(List<PendingApproval> items) throws IOException {
-    String batchId = "approve-" + System.currentTimeMillis();
     FileMover mover = new FileMover(repoRoot);
-    OperationLog log = new OperationLog(RepoPaths.operationsJsonl(repoRoot));
     int count = 0;
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (PendingApproval item : items) {
-        if (approveInto(index, mover, log, batchId, item)) {
+        if (approveInto(index, mover, item)) {
           count++;
         }
       }
@@ -65,8 +55,7 @@ public final class ApprovalService {
     return count;
   }
 
-  private boolean approveInto(
-      RepoIndex index, FileMover mover, OperationLog log, String batchId, PendingApproval item)
+  private boolean approveInto(RepoIndex index, FileMover mover, PendingApproval item)
       throws IOException {
     Path pendingFile = item.file();
     String categoryPath = item.categoryPath();
@@ -74,13 +63,6 @@ public final class ApprovalService {
         FileProcessor.posix(repoRoot.relativize(pendingFile.toAbsolutePath().normalize()));
     StoredDoc old = index.findByPath(oldRel).orElse(null);
     FileMover.MoveOutcome moved = mover.move(pendingFile, repoRoot.resolve(categoryPath));
-    log.append(
-        new OperationLog.Op(
-            batchId,
-            System.currentTimeMillis(),
-            "MOVE",
-            pendingFile.toString(),
-            moved.dest().toString()));
     index.deleteByPath(oldRel);
     index.upsert(
         new Doc(
@@ -158,10 +140,9 @@ public final class ApprovalService {
     CategoryTree updated = new CategoryTree(roots);
     updated.save(RepoPaths.categoriesYaml(repoRoot));
 
-    String batchId = "recat-" + System.currentTimeMillis();
     FileMover mover = new FileMover(repoRoot);
-    OperationLog log = new OperationLog(RepoPaths.operationsJsonl(repoRoot));
     int count = 0;
+
     List<StoredDoc> affected = new ArrayList<>();
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (StoredDoc d : index.all()) {
@@ -173,21 +154,13 @@ public final class ApprovalService {
       for (StoredDoc d : affected) {
         Path file = repoRoot.resolve(d.path());
         if (Files.exists(file)) {
-          var moved = mover.move(file, RepoPaths.pendingDir(repoRoot));
-          log.append(
-              new OperationLog.Op(
-                  batchId,
-                  System.currentTimeMillis(),
-                  "MOVE",
-                  file.toString(),
-                  moved.dest().toString()));
+          mover.move(file, RepoPaths.pendingDir(repoRoot));
         }
         index.deleteByPath(d.path());
         Path pendingFile = RepoPaths.pendingDir(repoRoot).resolve(Path.of(d.path()).getFileName());
         if (Files.exists(pendingFile)) {
           index.deleteByPath(FileProcessor.posix(repoRoot.relativize(pendingFile)));
-          new FileProcessor(repoRoot, cfg, llm, extractor)
-              .process(pendingFile, updated, batchId, index);
+          new FileProcessor(repoRoot, cfg, llm, extractor).process(pendingFile, updated, index);
           count++;
         }
       }
@@ -196,14 +169,13 @@ public final class ApprovalService {
   }
 
   private void reclassifyAllUnknowns(CategoryTree tree) throws IOException {
-    String batchId = "reclassify-" + System.currentTimeMillis();
     FileProcessor processor = new FileProcessor(repoRoot, cfg, llm, extractor);
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (StoredDoc d : index.byStatus("UNKNOWN", 10_000)) {
         index.deleteByPath(d.path()); // 先删索引，让 process 重走完整流程
         Path file = repoRoot.resolve(d.path());
         if (Files.exists(file)) {
-          processor.process(file, tree, batchId, index);
+          processor.process(file, tree, index);
         }
       }
     }

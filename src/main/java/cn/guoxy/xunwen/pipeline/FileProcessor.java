@@ -10,7 +10,6 @@ import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.EmbeddingClient;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.move.FileMover;
-import cn.guoxy.xunwen.move.OperationLog;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.io.IOException;
@@ -25,7 +24,7 @@ import org.slf4j.LoggerFactory;
  *
  * <ul>
  *   <li>{@link #prepare}：提取 + 分类 + 向量（耗时在解析与 LLM 调用，无写操作，可并发）；
- *   <li>{@link #commit}：移动 + 记日志 + 入库（独占 RepoIndex 单写者，串行）。
+ *   <li>{@link #commit}：移动 + 入库（独占 RepoIndex 单写者，串行）。
  * </ul>
  *
  * 串行 {@link #process} = prepare + commit，语义不变。
@@ -49,7 +48,6 @@ public final class FileProcessor {
   private final EmbeddingClient embedder;
   private final ContentExtractor extractor;
   private final FileMover mover;
-  private final OperationLog log;
   // 类目向量表按 tree 实例缓存：树变更（批准/删除类别）产生新实例即自动重建；
   // warmVectors 预构建后并发 prepare 只读，无竞态
   private CategoryTree vectorTree;
@@ -75,7 +73,6 @@ public final class FileProcessor {
             };
     this.extractor = extractor;
     this.mover = new FileMover(this.repoRoot);
-    this.log = new OperationLog(RepoPaths.operationsJsonl(this.repoRoot));
   }
 
   /** 预构建类目向量表：并发 prepare 前调用一次，消除惰性初始化竞态。 */
@@ -110,8 +107,8 @@ public final class FileProcessor {
     return new Prepared(src, rawText, fileVec, outcome);
   }
 
-  /** 阶段二：移动 + 记日志 + 入库；返回落点，重复/失败时 dest 为 null 且 status 说明原因。 */
-  public Result commit(Prepared p, String batchId, RepoIndex index) {
+  /** 阶段二：移动 + 入库；返回落点，重复/失败时 dest 为 null 且 status 说明原因。 */
+  public Result commit(Prepared p, RepoIndex index) {
     if (p == null) {
       return new Result(null, "ALREADY_INDEXED");
     }
@@ -125,7 +122,7 @@ public final class FileProcessor {
       Path actual;
       String hash;
       if (destDir.equals(p.src().getParent())) {
-        // 已在目标目录（如待分类内未入库文件）：跳过移动与日志直接入库，消除 dest==src 自重复循环
+        // 已在目标目录（如待分类内未入库文件）：跳过移动直接入库，消除 dest==src 自重复循环
         actual = p.src();
         hash = "";
       } else {
@@ -135,13 +132,6 @@ public final class FileProcessor {
         }
         actual = moved.dest();
         hash = moved.hash();
-        log.append(
-            new OperationLog.Op(
-                batchId,
-                System.currentTimeMillis(),
-                "MOVE",
-                p.src().toString(),
-                actual.toString()));
       }
 
       String status =
@@ -182,9 +172,8 @@ public final class FileProcessor {
   }
 
   /** 串行完整处理：prepare + commit。 */
-  public Result process(Path file, CategoryTree tree, String batchId, RepoIndex index)
-      throws IOException {
-    return commit(prepare(file, tree, index), batchId, index);
+  public Result process(Path file, CategoryTree tree, RepoIndex index) throws IOException {
+    return commit(prepare(file, tree, index), index);
   }
 
   /** 文件向量；embed 失败返回 null（向量路旁路），索引入库时再以中性向量兜底。 */

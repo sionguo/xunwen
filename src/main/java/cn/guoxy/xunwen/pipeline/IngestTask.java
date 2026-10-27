@@ -40,17 +40,16 @@ public final class IngestTask {
   /** 增量入库（监视新到文件，量少走串行）；返回含移动明细的处置统计。 */
   public BatchStats ingest(List<Path> newFiles) throws IOException {
     if (!Files.exists(RepoPaths.categoriesYaml(repoRoot))) {
-      return new BatchStats("ingest-skipped"); // 未冷启动：无树可归类，文件留在原地等冷启动后的 sync
+      return new BatchStats(); // 未冷启动：无树可归类，文件留在原地等冷启动后的 sync
     }
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
-    String batchId = "ingest-" + System.currentTimeMillis();
-    BatchStats stats = new BatchStats(batchId);
+    BatchStats stats = new BatchStats();
     try (RepoIndex index = new RepoIndex(RepoPaths.indexDir(repoRoot))) {
       for (Path f : newFiles) {
-        FileProcessor.Result r = processor.process(f, tree, batchId, index);
+        FileProcessor.Result r = processor.process(f, tree, index);
         stats.add(r);
         if (r.dest() != null) {
-          stats.moved(batchId, f, r.dest());
+          stats.moved(f, r.dest());
         }
       }
     }
@@ -64,11 +63,10 @@ public final class IngestTask {
   /** 带进度回调的积压同步：两阶段并发（提取+分类并发，入库串行），每个文件回调一次进度 （total 为全仓库文件数）。 */
   public BatchStats sync(ReshuffleTask.Progress progress) throws IOException {
     if (!Files.exists(RepoPaths.categoriesYaml(repoRoot))) {
-      return new BatchStats("sync-skipped"); // 未冷启动：无树可归类，UI 层负责提示先冷启动
+      return new BatchStats(); // 未冷启动：无树可归类，UI 层负责提示先冷启动
     }
     CategoryTree tree = CategoryTree.load(RepoPaths.categoriesYaml(repoRoot));
-    String batchId = "sync-" + System.currentTimeMillis();
-    BatchStats stats = new BatchStats(batchId);
+    BatchStats stats = new BatchStats();
     // 文件系统侧指纹（POSIX 相对路径 → [mtime, size]）；一次遍历建指纹表并留存文件列表
     Map<String, long[]> fs = new HashMap<>();
     List<Path> allFiles = new ArrayList<>();
@@ -131,10 +129,10 @@ public final class IngestTask {
             Thread.currentThread().interrupt();
             break;
           }
-          FileProcessor.Result r = processor.commit(p, batchId, index);
+          FileProcessor.Result r = processor.commit(p, index);
           stats.add(r);
           if (r.dest() != null) {
-            stats.moved(batchId, toProcess.get(i), r.dest());
+            stats.moved(toProcess.get(i), r.dest());
           }
           progress.onProgress(
               ++processed, total, FileProcessor.posix(repoRoot.relativize(toProcess.get(i))));

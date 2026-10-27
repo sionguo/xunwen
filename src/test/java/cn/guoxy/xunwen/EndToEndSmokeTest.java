@@ -11,7 +11,6 @@ import cn.guoxy.xunwen.index.RepoIndex;
 import cn.guoxy.xunwen.llm.LlmClient;
 import cn.guoxy.xunwen.pipeline.IngestTask;
 import cn.guoxy.xunwen.pipeline.ReshuffleTask;
-import cn.guoxy.xunwen.pipeline.RollbackService;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Files;
@@ -72,20 +71,6 @@ class EndToEndSmokeTest {
     assertTrue(Files.exists(RepoPaths.pendingDir(root).resolve("发票.txt"))); // UNKNOWN → 待分类
     assertEquals(2, stats.indexed()); // 统计可见：两个高置信文件归档
     assertEquals(1, stats.unknown()); // 发票走 UNKNOWN → 待分类
-
-    // 3b. 整批回滚（FR-4）：结构还原、索引清空
-    int restored = new RollbackService(root).rollbackBatch(stats.batchId());
-    assertEquals(3, restored);
-    assertTrue(Files.exists(root.resolve("季度报告.txt"))); // 回到重排前位置
-    assertTrue(Files.exists(root.resolve("年会通知.txt")));
-    assertTrue(Files.exists(root.resolve("旧结构/发票.txt")));
-    try (RepoIndex idx = new RepoIndex(RepoPaths.indexDir(root))) {
-      assertTrue(idx.findByPath("工作文档/季度报告.txt").isEmpty());
-    }
-
-    // 3c. 再次重排：回滚后的文件回到未处理状态，重新分类归位
-    new ReshuffleTask(root, cfg, llm, EXTRACTOR).run(ReshuffleTask.Progress.noop());
-    assertTrue(Files.exists(root.resolve("工作文档/季度报告.txt")));
 
     // 4. 增量入库
     Path newFile = root.resolve("新通知.txt");
