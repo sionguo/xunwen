@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty'); case \"$f\" in *.java) cd \"${CLAUDE_PROJECT_DIR:-.}\" && java -jar tools/google-java-format-1.33.0-all-deps.jar --replace \"$f\" || true ;; esac"
+            "command": "f=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty'); case \"$f\" in *.java) cd \"${CLAUDE_PROJECT_DIR:-.}\" && java -jar tools/google-java-format-1.33.0-all-deps.jar --replace --skip-removing-unused-imports \"$f\" || true ;; esac"
           }
         ]
       }
