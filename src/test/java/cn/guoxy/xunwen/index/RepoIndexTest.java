@@ -44,17 +44,6 @@ class RepoIndexTest {
   }
 
   @Test
-  void keywordSearchHitsChineseContent(@TempDir Path dir) throws Exception {
-    try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
-      idx.upsert(doc("1.pdf", "发票.pdf", "餐饮发票 报销凭证", new float[] {0, 0, 0, 1}));
-      idx.upsert(doc("2.pdf", "合同.pdf", "劳动合同 条款", new float[] {0, 0, 1, 0}));
-      ScoreDoc[] hits = idx.searchKeyword("发票", 10);
-      assertEquals(1, hits.length);
-      assertEquals("1.pdf", idx.storedOf(hits).getFirst().path());
-    }
-  }
-
-  @Test
   void knnSearchReturnsNearest(@TempDir Path dir) throws Exception {
     try (RepoIndex idx = RepoIndex.openWritable(dir.resolve("index"))) {
       idx.upsert(doc("1.pdf", "1.pdf", "c1", new float[] {1, 0, 0, 0}));

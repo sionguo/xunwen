@@ -24,7 +24,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
@@ -284,15 +283,6 @@ public final class RepoIndex implements AutoCloseable {
     return out;
   }
 
-  public ScoreDoc[] searchKeyword(String query, int k) throws IOException {
-    var parser = new MultiFieldQueryParser(new String[] {F_NAME, F_CONTENT}, analyzer);
-    try {
-      return search(parser.parse(query), k).scoreDocs;
-    } catch (org.apache.lucene.queryparser.classic.ParseException e) {
-      throw new IOException("Bad query: " + query, e);
-    }
-  }
-
   /** 以现成 Query 检索（调用方自管解析，避免同一查询重复 parse）。 */
   public ScoreDoc[] searchDocs(Query q, int k) throws IOException {
     return search(q, k).scoreDocs;
@@ -323,20 +313,16 @@ public final class RepoIndex implements AutoCloseable {
     return search(new KnnFloatVectorQuery(F_VEC, vector, k), k);
   }
 
-  public List<StoredDoc> storedOf(ScoreDoc[] hits) {
-    try {
-      IndexReader reader = reader();
-      if (reader == null) {
-        return List.of(); // 全新索引尚无 segments 文件：空结果
-      }
-      List<StoredDoc> out = new ArrayList<>();
-      for (ScoreDoc hit : hits) {
-        out.add(toStored(reader.storedFields().document(hit.doc)));
-      }
-      return out;
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
+  public List<StoredDoc> storedOf(ScoreDoc[] hits) throws IOException {
+    IndexReader reader = reader();
+    if (reader == null) {
+      return List.of(); // 全新索引尚无 segments 文件：空结果
     }
+    List<StoredDoc> out = new ArrayList<>();
+    for (ScoreDoc hit : hits) {
+      out.add(toStored(reader.storedFields().document(hit.doc)));
+    }
+    return out;
   }
 
   private static StoredDoc toStored(Document d) {
@@ -356,7 +342,7 @@ public final class RepoIndex implements AutoCloseable {
   private TopDocs search(Query q, int k) throws IOException {
     IndexReader reader = reader();
     if (reader == null) {
-      // 全新索引尚无 segments 文件：空结果（findByPath/searchKeyword/searchKnn 共用此路径）
+      // 全新索引尚无 segments 文件：空结果（findByPath/searchDocs/searchKnn 共用此路径）
       return new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
     }
     return new IndexSearcher(reader).search(q, k);

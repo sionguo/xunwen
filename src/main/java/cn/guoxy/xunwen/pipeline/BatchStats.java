@@ -62,16 +62,8 @@ public final class BatchStats {
     return alreadyIndexed;
   }
 
-  public int duplicates() {
-    return duplicates;
-  }
-
   public int failed() {
     return failed;
-  }
-
-  public int cleaned() {
-    return cleaned;
   }
 
   public List<MoveRecord> moved() {

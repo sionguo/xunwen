@@ -180,7 +180,7 @@ public final class FileProcessor {
     } catch (RuntimeException e) { // Jackson 3 unchecked / HTTP 服务不可达
       if (!embedWarned) {
         embedWarned = true;
-        LOG.warn("embedding 调用失败，本任务后续文件将以无向量方式入库: {}", String.valueOf(e.getMessage()));
+        LOG.warn("embedding 调用失败，本任务后续文件将以无向量方式入库: {}", e.getMessage());
       }
       return null;
     }

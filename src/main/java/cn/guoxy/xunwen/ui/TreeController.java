@@ -467,7 +467,7 @@ public class TreeController implements PageAware {
   private static String pathOf(TreeItem<String> item) {
     List<String> parts = new ArrayList<>();
     for (TreeItem<String> n = item; n.getParent() != null; n = n.getParent()) {
-      parts.add(0, n.getValue());
+      parts.addFirst(n.getValue());
     }
     return String.join("/", parts);
   }

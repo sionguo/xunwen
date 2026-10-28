@@ -155,10 +155,6 @@ public final class AppState {
     return new RepoSession(repo.toAbsolutePath().normalize(), config.get(), llm(), extractor());
   }
 
-  public ObjectProperty<GlobalConfig> configProperty() {
-    return config;
-  }
-
   public GlobalConfig config() {
     return config.get();
   }
@@ -200,7 +196,7 @@ public final class AppState {
     Platform.runLater(
         () -> {
           activity.set(text);
-          activityHistory.add(0, text);
+          activityHistory.addFirst(text);
           if (activityHistory.size() > 5) {
             activityHistory.remove(5, activityHistory.size());
           }
