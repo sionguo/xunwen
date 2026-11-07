@@ -65,10 +65,20 @@ public final class Fx {
 
   public static void error(String msg, Throwable t) {
     LOG.error(msg, t); // 弹窗之外留档：完整堆栈在 ~/.xunwen/logs/xunwen.log
-    Alert a = new Alert(Alert.AlertType.ERROR, String.valueOf(t));
+    Alert a = new Alert(Alert.AlertType.ERROR, rootMessage(t));
     a.setTitle(msg);
     a.setHeaderText(msg);
     a.showAndWait();
+  }
+
+  /** 根因消息人话化：拆掉包装异常链取根因 message；无消息时退类名——用户看到的不再是异常 toString。 */
+  public static String rootMessage(Throwable t) {
+    Throwable cur = t;
+    while (cur.getCause() != null && cur.getCause() != cur) {
+      cur = cur.getCause();
+    }
+    String m = cur.getMessage();
+    return m == null || m.isBlank() ? cur.getClass().getSimpleName() : m;
   }
 
   /** 非模态进度框：后台任务用 update 刷新，close 收尾。 */

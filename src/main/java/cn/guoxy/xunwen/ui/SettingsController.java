@@ -68,26 +68,17 @@ public class SettingsController {
             state.llm().chat(List.of(LlmClient.Msg.user("连接测试，请只回复：OK")));
             chat = "正常";
           } catch (Exception e) {
-            chat = "失败：" + rootMessage(e);
+            chat = "失败：" + Fx.rootMessage(e);
           }
           String embed;
           try {
             embed = "正常（维度 " + state.llm().embed("连接测试").length + "）";
           } catch (Exception e) {
-            embed = "失败：" + rootMessage(e);
+            embed = "失败：" + Fx.rootMessage(e);
           }
           return new String[] {chat, embed};
         },
         r -> Fx.alert("连接测试", "对话服务：" + r[0] + "\n向量服务：" + r[1]),
         t -> Fx.error("连接测试失败", t));
-  }
-
-  private static String rootMessage(Throwable t) {
-    Throwable cur = t;
-    while (cur.getCause() != null && cur.getCause() != cur) {
-      cur = cur.getCause();
-    }
-    String m = cur.getMessage();
-    return m == null || m.isBlank() ? cur.getClass().getSimpleName() : m;
   }
 }
