@@ -81,14 +81,19 @@ public final class Fx {
     return m == null || m.isBlank() ? cur.getClass().getSimpleName() : m;
   }
 
-  /** 非模态进度框：后台任务用 update 刷新，close 收尾。 */
-  public static ProgressBox progressBox(String title) {
+  /** 非模态进度框：后台任务用 update 刷新，close 收尾；onCancel 非空时启用取消按钮（点取消即触发回调，任务侧据此中止）。 */
+  public static ProgressBox progressBox(String title, Runnable onCancel) {
     var dialog = new javafx.scene.control.Dialog<Void>();
     dialog.setTitle(title);
     dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CANCEL);
     ((javafx.scene.control.Button)
             dialog.getDialogPane().lookupButton(javafx.scene.control.ButtonType.CANCEL))
-        .setDisable(true); // v1 任务不可中断，按钮仅占位
+        .setOnAction(
+            e -> {
+              if (onCancel != null) {
+                onCancel.run();
+              }
+            });
     var bar = new javafx.scene.control.ProgressBar();
     bar.setPrefWidth(360);
     var label = new javafx.scene.control.Label("准备中…");

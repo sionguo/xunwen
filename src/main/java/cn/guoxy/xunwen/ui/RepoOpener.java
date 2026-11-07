@@ -1,11 +1,13 @@
 package cn.guoxy.xunwen.ui;
 
+import cn.guoxy.xunwen.pipeline.BatchRunner;
 import cn.guoxy.xunwen.pipeline.IngestTask;
 import cn.guoxy.xunwen.repo.CategoryTree;
 import cn.guoxy.xunwen.repo.RepoPaths;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 
@@ -46,21 +48,36 @@ final class RepoOpener {
               });
       return;
     }
-    Fx.ProgressBox progress = Fx.progressBox("正在同步仓库「" + selected.getFileName() + "」…");
+    // 取消链路与 TreeController.reshuffle 同模式：标志由取消键置位，BatchRunner 每文件检查
+    AtomicBoolean cancelledFlag = new AtomicBoolean(false);
+    Fx.ProgressBox progress =
+        Fx.progressBox("正在同步仓库「" + selected.getFileName() + "」…", () -> cancelledFlag.set(true));
     Fx.runEngine(
         state,
         () ->
             new IngestTask(state.sessionFor(selected))
-                .sync((done, total, file) -> progress.update(done, total, file)),
+                .sync(
+                    new BatchRunner.Progress() {
+                      @Override
+                      public void onProgress(int done, int total, String file) {
+                        progress.update(done, total, file);
+                      }
+
+                      @Override
+                      public boolean cancelled() {
+                        return cancelledFlag.get();
+                      }
+                    }),
         stats -> {
           progress.close();
           state.markDataChanged();
-          state.activity("已同步「" + selected.getFileName() + "」，本次：" + stats.summary());
+          String summary = (cancelledFlag.get() ? "已取消（已完成部分保留）：" : "") + stats.summary();
+          state.activity("已同步「" + selected.getFileName() + "」，本次：" + summary);
           String report =
               "已打开仓库「"
                   + selected.getFileName()
                   + "」\n\n本次同步："
-                  + stats.summary()
+                  + summary
                   + (stats.failed() > 0 ? "\n\n失败文件已跳过（LLM 不可达或文件被占用），详见日志，下次同步自动重试。" : "");
           Fx.alert("打开仓库", report);
         },
