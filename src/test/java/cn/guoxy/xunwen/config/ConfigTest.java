@@ -3,6 +3,7 @@ package cn.guoxy.xunwen.config;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,27 @@ class ConfigTest {
     assertEquals(List.of(dir.resolve("repoA"), dir.resolve("repoB")), reg.list());
     reg.remove(dir.resolve("repoA"));
     assertEquals(List.of(dir.resolve("repoB")), reg.list());
+  }
+
+  @Test
+  void corruptConfigFallsBackToDefaultsWithBackup(@TempDir Path dir) throws IOException {
+    Path cfg = dir.resolve("config.json");
+    Files.writeString(cfg, "{not json");
+    var store = new GlobalConfigStore(cfg);
+    assertEquals(GlobalConfig.defaults(), store.load()); // 损坏不抛：回退默认
+    assertTrue(Files.exists(dir.resolve("config.json.corrupt"))); // 坏文件改名备份
+    // 回退后可正常保存重建
+    store.save(GlobalConfig.defaults());
+    assertEquals(GlobalConfig.defaults(), store.load());
+  }
+
+  @Test
+  void corruptRegistryFallsBackToEmptyWithBackup(@TempDir Path dir) throws IOException {
+    Path repos = dir.resolve("repos.json");
+    Files.writeString(repos, "[not json");
+    var reg = new RepoRegistry(repos);
+    assertEquals(List.of(), reg.list()); // 损坏不抛：回退空列表
+    assertTrue(Files.exists(dir.resolve("repos.json.corrupt")));
   }
 
   @Test
