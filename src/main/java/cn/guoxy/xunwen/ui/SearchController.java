@@ -169,22 +169,21 @@ public class SearchController implements PageAware {
       return;
     }
     // 搜索是只读操作（只读索引实例），不进 engineLock：批量任务进行中也能即时搜索
-    boolean embedDown = state.queryVector(q) == null; // 预检一次（缓存内免费），降级时结果后提示
     Fx.runAsync(
         () -> doSearch(repos, q),
-        hits -> {
+        r -> {
           queryMode = true;
-          allHits = hits;
+          allHits = r.hits();
           activeCategories.clear(); // 新查询重置筛选：分面值可能已不存在，残留勾选会造成「看着有数却筛空」
           activeStatuses.clear();
           facetHint.setVisible(false);
           facetHint.setManaged(false);
           buildFacets();
           applyFilters();
-          if (embedDown) {
+          if (r.embedDown()) {
             showFacetHint("向量化服务不可用，当前为纯关键词检索");
           }
-          state.activity("搜索「" + q + "」：" + hits.size() + " 个结果");
+          state.activity("搜索「" + q + "」：" + r.hits().size() + " 个结果");
         },
         t -> Fx.error("搜索失败", t));
   }
@@ -389,8 +388,12 @@ public class SearchController implements PageAware {
     return cur == null ? List.of() : List.of(cur);
   }
 
-  private List<HybridSearcher.Hit> doSearch(List<Path> repos, String q) throws Exception {
+  /** 搜索结果带降级标记：embedding 预检在后台线程执行（FX 线程不等待端点），UI 据此提示纯关键词检索。 */
+  private record SearchResult(List<HybridSearcher.Hit> hits, boolean embedDown) {}
+
+  private SearchResult doSearch(List<Path> repos, String q) throws Exception {
     float[] vec = state.queryVector(q); // LRU 缓存命中即返回；失败返回 null
+    boolean embedDown = vec == null;
     if (vec == null) {
       vec = RepoIndex.skipVector(state.config().vectorDim()); // embedding 不可用退关键词路
     }
@@ -407,7 +410,7 @@ public class SearchController implements PageAware {
           repoRootByName.put(repo.getFileName().toString(), repo);
         }
       }
-      return HybridSearcher.search(indices, q, vec, 50);
+      return new SearchResult(HybridSearcher.search(indices, q, vec, 50), embedDown);
     } finally {
       for (RepoIndex idx : opened) {
         idx.close();
