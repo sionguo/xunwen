@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -52,9 +53,11 @@ public class DashboardController {
   @FXML
   private void initialize() {
     wireRepoTable();
-    // 向量服务状态卡：跟随单一降级状态源（AppState.embedDegraded）
+    // 向量服务状态卡：跟随单一降级状态源（AppState.embedDegraded）；标志由后台线程翻转，改场景图前切 FX 线程
     statVector.setText(state.embedDegraded() ? "不可用" : "正常");
-    state.embedDegradedProperty().addListener((o, ov, v) -> statVector.setText(v ? "不可用" : "正常"));
+    state
+        .embedDegradedProperty()
+        .addListener((o, ov, v) -> Platform.runLater(() -> statVector.setText(v ? "不可用" : "正常")));
     // 待审/未知卡即入口：点击直达待审页（状态即行动）
     if (statPending.getParent() instanceof javafx.scene.layout.VBox pendingCard) {
       pendingCard.getStyleClass().add("stat-clickable");
