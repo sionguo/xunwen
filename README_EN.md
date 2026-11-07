@@ -29,7 +29,7 @@
 - **Document parsing** — Apache Tika handles pdf / docx / xlsx / pptx / txt / md; scanned PDFs automatically fall back to PaddleOCR (ONNX, pure Java) for text extraction.
 - **Incremental watching** — While the GUI is open, a WatchService recursively watches the library with write-stability detection (repeated identical sampling) so half-written files are never processed; events caused by the tool's own moves are filtered out to prevent loops.
 - **Multiple libraries** — Libraries are fully isolated: each has its own category tree and index; the index and metadata live inside the library's `.xunwen/` folder, travel with it, and deleting the folder deletes the index.
-- **Local-first** — The index, category tree, and operation data all stay on your machine; the only network traffic is calls to the LLM endpoint you configure.
+- **Local-first** — The index and category tree all stay on your machine; the only network traffic is calls to the LLM endpoint you configure (classification, embedding, and tree sampling send file names and content snippets to that endpoint).
 
 ## Getting Started
 
@@ -107,7 +107,6 @@ Tech stack: Java 25 · JavaFX 27 (classpath build with a decoupled Launcher) · 
 
 The following features are planned (TBD), in priority order: RAG Q&A → system tray → audio/video transcription.
 
-- [ ] Split reshuffle semantics: incremental re-classification vs full reshuffle
 - [ ] RAG Q&A (currently retrieval only)
 - [ ] Audio/video transcription, tray background mode
 
